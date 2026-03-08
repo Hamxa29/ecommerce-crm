@@ -63,10 +63,8 @@ const NAV_SECTIONS = [
 ];
 
 export default function Sidebar() {
-  const { collapsed, toggleSidebar } = useUiStore((s) => ({
-    collapsed: s.sidebarCollapsed,
-    toggleSidebar: s.toggleSidebar,
-  }));
+  const collapsed = useUiStore((s) => s.sidebarCollapsed);
+  const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
 

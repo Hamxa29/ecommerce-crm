@@ -10,6 +10,9 @@ import usersRoutes      from './modules/users/users.routes.js';
 import categoriesRoutes from './modules/categories/categories.routes.js';
 import productsRoutes   from './modules/products/products.routes.js';
 import ordersRoutes     from './modules/orders/orders.routes.js';
+import agentsRoutes     from './modules/agents/agents.routes.js';
+import whatsappRoutes   from './modules/whatsapp/whatsapp.routes.js';
+import formsRoutes      from './modules/forms/forms.routes.js';
 
 const app = express();
 
@@ -30,6 +33,9 @@ app.use('/api/users',              usersRoutes);
 app.use('/api/product-categories', categoriesRoutes);
 app.use('/api/products',           productsRoutes);
 app.use('/api/orders',             ordersRoutes);
+app.use('/api/agents',             agentsRoutes);
+app.use('/api/whatsapp',           whatsappRoutes);
+app.use('/api/forms',              formsRoutes);
 
 // Health check
 app.get('/health', (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
