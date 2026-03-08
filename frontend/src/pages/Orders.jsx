@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ordersApi } from '@/api/orders.api';
@@ -8,6 +8,63 @@ import OrderStatusBadge from '@/components/shared/OrderStatusBadge';
 import PhoneLink from '@/components/shared/PhoneLink';
 import EmptyState from '@/components/shared/EmptyState';
 import { Search, Filter, RefreshCw, ChevronDown, CheckSquare, Loader2, X, Plus } from 'lucide-react';
+
+function StateDropdown({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const filtered = NIGERIA_STATES.filter(s => s.toLowerCase().includes(search.toLowerCase()));
+
+  const select = (state) => { onChange(state); setOpen(false); setSearch(''); };
+
+  return (
+    <div ref={ref} className="relative">
+      <button onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-2 border rounded-lg px-3 py-2 text-sm bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-[130px]">
+        <span className={`flex-1 text-left ${value ? 'text-gray-900' : 'text-gray-400'}`}>
+          {value || 'All States'}
+        </span>
+        {value
+          ? <X size={13} className="text-gray-400 hover:text-gray-600 shrink-0" onClick={e => { e.stopPropagation(); select(''); }} />
+          : <ChevronDown size={13} className="text-gray-400 shrink-0" />
+        }
+      </button>
+
+      {open && (
+        <div className="absolute z-30 top-full mt-1 right-0 w-52 bg-white border rounded-xl shadow-lg overflow-hidden">
+          <div className="p-2 border-b">
+            <div className="relative">
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Search state..."
+                className="w-full pl-7 pr-3 py-1.5 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30" />
+            </div>
+          </div>
+          <div className="max-h-56 overflow-y-auto">
+            <button onClick={() => select('')}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${!value ? 'text-primary font-medium bg-primary/5' : 'text-gray-700'}`}>
+              All States
+            </button>
+            {filtered.map(s => (
+              <button key={s} onClick={() => select(s)}
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${value === s ? 'text-primary font-medium bg-primary/5' : 'text-gray-700'}`}>
+                {s}
+              </button>
+            ))}
+            {filtered.length === 0 && <p className="text-xs text-gray-400 px-3 py-3">No states found</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const STATUS_TABS = [
   { value: '', label: 'All' },
@@ -76,11 +133,7 @@ function AddOrderModal({ onClose }) {
             {inp('customerPhone2', 'Phone 2 (optional)')}
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">State *</label>
-              <select value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-                <option value="">Select state...</option>
-                {NIGERIA_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <StateDropdown value={form.state} onChange={v => setForm(f => ({ ...f, state: v }))} />
             </div>
             {inp('city', 'City')}
             {inp('totalAmount', 'Total Amount (NGN)', 'number', true)}
@@ -182,11 +235,7 @@ export default function Orders() {
             placeholder="Search name, phone, order #..."
             className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
         </div>
-        <select value={stateFilter} onChange={e => { setStateFilter(e.target.value); setPage(1); }}
-          className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-          <option value="">All States</option>
-          {NIGERIA_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <StateDropdown value={stateFilter} onChange={v => { setStateFilter(v); setPage(1); }} />
         <button onClick={() => refetch()} className="p-2 border rounded-lg hover:bg-gray-50 text-gray-500">
           <RefreshCw size={15} />
         </button>
