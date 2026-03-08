@@ -8,6 +8,6 @@ export const ordersApi = {
   get:             (id)     => client.get(`/orders/${id}`).then(r => r.data),
   create:          (data)   => client.post('/orders', data).then(r => r.data),
   update:          (id, d)  => client.put(`/orders/${id}`, d).then(r => r.data),
-  changeStatus:    (id, status, note) => client.put(`/orders/${id}/status`, { status, note }).then(r => r.data),
+  changeStatus:    (id, status, note, scheduledDate) => client.put(`/orders/${id}/status`, { status, note, scheduledDate }).then(r => r.data),
   bulk:            (orderIds, action, payload) => client.post('/orders/bulk', { orderIds, action, payload }).then(r => r.data),
 };

@@ -129,7 +129,7 @@ export async function updateOrder(id, data, actorId) {
   return order;
 }
 
-export async function changeOrderStatus(id, newStatus, actorId, note) {
+export async function changeOrderStatus(id, newStatus, actorId, note, scheduledDate) {
   const current = await prisma.order.findUniqueOrThrow({
     where: { id },
     include: {
@@ -139,14 +139,19 @@ export async function changeOrderStatus(id, newStatus, actorId, note) {
     },
   });
 
+  const updateData = {
+    status: newStatus,
+    statusHistory: {
+      create: { fromStatus: current.status, toStatus: newStatus, changedById: actorId, note: note ?? null },
+    },
+  };
+  if (newStatus === 'SCHEDULED' && scheduledDate) {
+    updateData.scheduledDate = new Date(scheduledDate);
+  }
+
   const order = await prisma.order.update({
     where: { id },
-    data: {
-      status: newStatus,
-      statusHistory: {
-        create: { fromStatus: current.status, toStatus: newStatus, changedById: actorId, note: note ?? null },
-      },
-    },
+    data: updateData,
     include: {
       items: { include: { product: { include: { category: true } } } },
       agent: true,

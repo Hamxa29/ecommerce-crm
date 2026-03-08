@@ -8,9 +8,9 @@ const createSchema = z.object({
   role: z.enum(['ADMIN','STAFF','SUPERVISOR','PARTNER','CUSTOMER_SUPPORT','ACCOUNTANT']).optional(),
   status: z.boolean().optional(),
   permissions: z.record(z.boolean()).optional(),
-  salary: z.number().optional(),
-  bonus: z.number().optional(),
-  commission: z.number().optional(),
+  salary: z.number().nullable().optional(),
+  bonus: z.number().nullable().optional(),
+  commission: z.number().nullable().optional(),
 });
 
 const updateSchema = createSchema.partial().omit({ password: true }).extend({

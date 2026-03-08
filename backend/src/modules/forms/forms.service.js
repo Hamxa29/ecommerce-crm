@@ -3,6 +3,7 @@ import { generateOrderNumber } from '../../utils/orderNumber.js';
 
 export async function listForms() {
   return prisma.form.findMany({
+    where: { status: true },
     orderBy: { createdAt: 'desc' },
     include: { products: { include: { product: { select: { id: true, name: true } } } } },
   });

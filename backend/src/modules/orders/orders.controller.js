@@ -20,9 +20,9 @@ export async function update(req, res, next) {
 
 export async function changeStatus(req, res, next) {
   try {
-    const { status, note } = req.body;
+    const { status, note, scheduledDate } = req.body;
     if (!status) return res.status(400).json({ error: 'status required' });
-    res.json(await svc.changeOrderStatus(req.params.id, status, req.user.id, note));
+    res.json(await svc.changeOrderStatus(req.params.id, status, req.user.id, note, scheduledDate));
   } catch (err) { next(err); }
 }
 

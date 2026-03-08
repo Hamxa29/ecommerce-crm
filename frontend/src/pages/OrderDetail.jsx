@@ -14,6 +14,7 @@ export default function OrderDetail() {
   const qc = useQueryClient();
   const [newStatus, setNewStatus] = useState('');
   const [note, setNote] = useState('');
+  const [scheduledDate, setScheduledDate] = useState('');
 
   const { data: order, isLoading, error } = useQuery({
     queryKey: ['order', id],
@@ -21,8 +22,8 @@ export default function OrderDetail() {
   });
 
   const statusMutation = useMutation({
-    mutationFn: () => ordersApi.changeStatus(id, newStatus, note),
-    onSuccess: () => { qc.invalidateQueries(['order', id]); qc.invalidateQueries(['orders']); setNewStatus(''); setNote(''); },
+    mutationFn: () => ordersApi.changeStatus(id, newStatus, note, scheduledDate || undefined),
+    onSuccess: () => { qc.invalidateQueries(['order', id]); qc.invalidateQueries(['orders']); setNewStatus(''); setNote(''); setScheduledDate(''); },
   });
 
   if (isLoading) return (
@@ -154,9 +155,17 @@ export default function OrderDetail() {
               <option value="">Select new status...</option>
               {ORDER_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
+            {newStatus === 'SCHEDULED' && (
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-gray-600 mb-1">Delivery Date & Time *</label>
+                <input type="datetime-local" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              </div>
+            )}
             <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Note (optional)" rows={2}
               className="w-full border rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary/30" />
-            <button onClick={() => statusMutation.mutate()} disabled={!newStatus || statusMutation.isPending}
+            <button onClick={() => statusMutation.mutate()}
+              disabled={!newStatus || statusMutation.isPending || (newStatus === 'SCHEDULED' && !scheduledDate)}
               className="w-full bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
               {statusMutation.isPending && <Loader2 size={14} className="animate-spin" />}
               Update Status

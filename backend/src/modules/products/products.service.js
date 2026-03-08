@@ -5,7 +5,10 @@ export async function listProducts(query) {
   const { skip, take, page, limit } = parsePagination(query);
   const where = {};
   if (query.categoryId) where.categoryId = query.categoryId;
-  if (query.status !== undefined) where.status = query.status === 'true';
+  // Default to active products unless caller explicitly passes status=all or status=false
+  if (query.status === 'all') { /* no filter */ }
+  else if (query.status !== undefined) where.status = query.status === 'true';
+  else where.status = true;
   if (query.search) where.name = { contains: query.search, mode: 'insensitive' };
 
   const [products, total] = await Promise.all([
@@ -52,7 +55,12 @@ export async function updateProduct(id, data) {
 }
 
 export async function deleteProduct(id) {
-  return prisma.product.update({ where: { id }, data: { status: false } });
+  // Try hard delete first; fall back to soft delete if orders reference this product
+  const orderItemCount = await prisma.orderItem.count({ where: { productId: id } });
+  if (orderItemCount > 0) {
+    return prisma.product.update({ where: { id }, data: { status: false } });
+  }
+  return prisma.product.delete({ where: { id } });
 }
 
 export async function duplicateProduct(id) {
