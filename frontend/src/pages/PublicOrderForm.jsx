@@ -4,6 +4,55 @@ import { formatNGN } from '@/lib/utils';
 import { NIGERIA_STATES } from '@/lib/constants';
 import axios from 'axios';
 
+// ── Custom State Dropdown (replaces native select) ────────────────────────────
+function StateDropdown({ value, onChange, hasError }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const filtered = NIGERIA_STATES.filter(s => s.toLowerCase().includes(search.toLowerCase()));
+
+  const select = (s) => { onChange(s); setOpen(false); setSearch(''); };
+
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className={`w-full flex items-center justify-between px-4 py-3 border-2 rounded-xl bg-white text-sm transition focus:outline-none ${
+          hasError ? 'border-red-400' : open ? 'border-blue-500' : 'border-gray-300 hover:border-gray-400'
+        }`}>
+        <span className={value ? 'text-gray-900' : 'text-gray-400'}>{value || 'Your Delivery State *'}</span>
+        <svg className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white border-2 border-gray-200 rounded-xl shadow-xl overflow-hidden">
+          <div className="p-2 border-b border-gray-100">
+            <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Search state..."
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400" />
+          </div>
+          <div className="max-h-52 overflow-y-auto">
+            {filtered.length === 0 && <p className="text-xs text-gray-400 px-4 py-3">No states found</p>}
+            {filtered.map(s => (
+              <button key={s} type="button" onClick={() => select(s)}
+                className={`w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 transition ${value === s ? 'text-blue-600 font-semibold bg-blue-50' : 'text-gray-700'}`}>
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const pub = axios.create({ baseURL: '/api' });
 
 // ── Post-Purchase Upsell Modal ────────────────────────────────────────────────
@@ -89,18 +138,25 @@ function SuccessScreen({ order, upsellProducts, upsellIdx, upsellLoading, onUpse
 }
 
 // ── Order Bump Section (inline toggle on form) ────────────────────────────────
-function OrderBumpSection({ product, accepted, onToggle, selectedTierIdx, onSelectTier }) {
+function OrderBumpSection({ product, accepted, onToggle, selectedTierIdx, onSelectTier, bumpConfig }) {
   const tiers = product.pricingTiers ?? [];
-  const price = Number(tiers[selectedTierIdx ?? 0]?.price ?? 0);
+  const cfg = bumpConfig ?? {};
+  const headline = cfg.headline || 'Would You Like To Add To Your Order:';
+  const benefit = cfg.benefit || (product.variations?.[0]?.description ?? '');
+  const ctaText = cfg.ctaText || 'Yes, I Will Take It!';
+  const urgencyText = cfg.urgencyText || 'This offer is only available here — not available elsewhere';
+  const imageUrl = cfg.imageUrl || '';
 
   return (
     <div className="border-4 border-dashed border-yellow-400 bg-yellow-50 rounded-2xl p-5 space-y-4">
       <div className="text-center">
-        <p className="text-xs font-bold uppercase tracking-widest text-yellow-700 mb-1">⚡ Special Add-On Offer</p>
-        <h3 className="text-xl font-bold text-gray-800">{product.name}</h3>
-        {product.variations?.length > 0 && (
-          <p className="text-sm text-gray-600 mt-1">{product.variations[0]?.description}</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-yellow-700 mb-2">⚡ Special Add-On Offer</p>
+        <p className="text-sm font-semibold text-gray-600 mb-1">{headline}</p>
+        {imageUrl && (
+          <img src={imageUrl} alt={product.name} className="mx-auto max-h-40 object-contain rounded-xl mb-2" />
         )}
+        <h3 className="text-xl font-bold text-gray-800">{product.name}</h3>
+        {benefit && <p className="text-sm text-gray-600 mt-1">{benefit}</p>}
       </div>
 
       {/* Toggle button */}
@@ -112,7 +168,7 @@ function OrderBumpSection({ product, accepted, onToggle, selectedTierIdx, onSele
           <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${accepted ? 'border-white bg-white' : 'border-gray-400'}`}>
             {accepted && <div className="w-3 h-3 bg-green-500 rounded-full" />}
           </div>
-          {accepted ? '✓ Added to Order' : 'Yes, I Will Take It!'}
+          {accepted ? '✓ Added to Order' : ctaText}
         </button>
       </div>
 
@@ -142,9 +198,7 @@ function OrderBumpSection({ product, accepted, onToggle, selectedTierIdx, onSele
       )}
 
       {!accepted && (
-        <p className="text-center text-xs text-gray-500 italic">
-          This offer is only available here — not available elsewhere
-        </p>
+        <p className="text-center text-xs text-gray-500 italic">{urgencyText}</p>
       )}
     </div>
   );
@@ -444,11 +498,7 @@ export default function PublicOrderForm() {
               </div>
 
               <div>
-                <select value={state} onChange={e => setState(e.target.value)}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm bg-white ${errors.state ? 'border-red-400' : 'border-gray-300'}`}>
-                  <option value="">Your Delivery State *</option>
-                  {NIGERIA_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <StateDropdown value={state} onChange={setState} hasError={!!errors.state} />
                 {errors.state && <p className="text-xs text-red-500 mt-1">{errors.state}</p>}
               </div>
 
@@ -473,6 +523,7 @@ export default function PublicOrderForm() {
                 product={fp.product}
                 accepted={!!bumps[fp.productId]?.accepted}
                 selectedTierIdx={bumps[fp.productId]?.tierIdx ?? 0}
+                bumpConfig={form.embedSettings?.bumps?.[fp.productId]}
                 onToggle={() => setBumps(prev => ({
                   ...prev,
                   [fp.productId]: { ...prev[fp.productId], accepted: !prev[fp.productId]?.accepted, tierIdx: 0 }

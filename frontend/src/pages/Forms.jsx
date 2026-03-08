@@ -3,7 +3,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formsApi } from '@/api/forms.api';
 import { productsApi } from '@/api/products.api';
 import { formatDate } from '@/lib/utils';
-import { Plus, Pencil, Trash2, Code, ExternalLink, FileText, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, Code, ExternalLink, FileText, ToggleLeft, ToggleRight, ChevronDown, ChevronUp } from 'lucide-react';
+
+const DEFAULT_BUMP_CONFIG = {
+  headline: 'Would You Like To Add To Your Order:',
+  benefit: '',
+  ctaText: 'Yes, I Will Take It!',
+  urgencyText: 'This offer is only available here — not available elsewhere',
+  imageUrl: '',
+};
 
 function EmbedModal({ formId, onClose }) {
   const { data, isLoading } = useQuery({
@@ -59,6 +67,56 @@ function EmbedModal({ formId, onClose }) {
   );
 }
 
+function BumpConfigPanel({ productId, config, onChange }) {
+  const [open, setOpen] = useState(false);
+  const c = config ?? DEFAULT_BUMP_CONFIG;
+  const set = (key, val) => onChange(productId, { ...c, [key]: val });
+
+  return (
+    <div className="ml-6 mt-2 border border-yellow-200 rounded-xl bg-yellow-50 overflow-hidden">
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-yellow-800 hover:bg-yellow-100 transition">
+        <span>⚡ Configure Bump Offer</span>
+        {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+      </button>
+      {open && (
+        <div className="p-3 space-y-2 border-t border-yellow-200">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-0.5">Headline</label>
+            <input value={c.headline} onChange={e => set('headline', e.target.value)}
+              placeholder="Would You Like To Add To Your Order:"
+              className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-0.5">Benefit / Description</label>
+            <input value={c.benefit} onChange={e => set('benefit', e.target.value)}
+              placeholder="e.g. Designed for safe driving at night"
+              className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-0.5">CTA Button Text</label>
+            <input value={c.ctaText} onChange={e => set('ctaText', e.target.value)}
+              placeholder="Yes, I Will Take It!"
+              className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-0.5">Urgency Text</label>
+            <input value={c.urgencyText} onChange={e => set('urgencyText', e.target.value)}
+              placeholder="This offer is only available here — not available elsewhere"
+              className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-0.5">Image URL (optional)</label>
+            <input value={c.imageUrl} onChange={e => set('imageUrl', e.target.value)}
+              placeholder="https://..."
+              className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FormModal({ form, onClose }) {
   const qc = useQueryClient();
   const isEdit = !!form;
@@ -67,6 +125,7 @@ function FormModal({ form, onClose }) {
   const [selectedProducts, setSelectedProducts] = useState(
     form?.products?.map(fp => ({ productId: fp.productId, isUpsell: fp.isUpsell })) ?? []
   );
+  const [bumpConfigs, setBumpConfigs] = useState(form?.embedSettings?.bumps ?? {});
 
   const { data: allProducts = [] } = useQuery({
     queryKey: ['products-all'],
@@ -92,12 +151,30 @@ function FormModal({ form, onClose }) {
   };
 
   const toggleUpsell = (productId) => {
-    setSelectedProducts(prev => prev.map(p => p.productId === productId ? { ...p, isUpsell: !p.isUpsell } : p));
+    setSelectedProducts(prev => prev.map(p => {
+      if (p.productId !== productId) return p;
+      const nowUpsell = !p.isUpsell;
+      if (nowUpsell && !bumpConfigs[productId]) {
+        setBumpConfigs(bc => ({ ...bc, [productId]: { ...DEFAULT_BUMP_CONFIG } }));
+      }
+      return { ...p, isUpsell: nowUpsell };
+    }));
+  };
+
+  const updateBumpConfig = (productId, config) => {
+    setBumpConfigs(prev => ({ ...prev, [productId]: config }));
   };
 
   const handleSave = () => {
     if (!name.trim() || !slug.trim()) return;
-    saveMutation.mutate({ name, slug, products: selectedProducts });
+    const bumpsForSave = {};
+    selectedProducts.filter(p => p.isUpsell).forEach(p => {
+      bumpsForSave[p.productId] = bumpConfigs[p.productId] ?? { ...DEFAULT_BUMP_CONFIG };
+    });
+    saveMutation.mutate({
+      name, slug, products: selectedProducts,
+      embedSettings: { bumps: bumpsForSave },
+    });
   };
 
   const products = Array.isArray(allProducts) ? allProducts : allProducts.data ?? [];
@@ -131,19 +208,28 @@ function FormModal({ form, onClose }) {
             {products.length === 0 ? (
               <p className="text-sm text-gray-400">No products found. Create products first.</p>
             ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto border rounded-lg p-3">
+              <div className="space-y-1 max-h-72 overflow-y-auto border rounded-lg p-3">
                 {products.map(p => {
                   const selected = selectedProducts.find(sp => sp.productId === p.id);
                   return (
-                    <div key={p.id} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer ${selected ? 'bg-primary/5 border border-primary/20' : 'hover:bg-gray-50'}`}
-                      onClick={() => toggleProduct(p.id)}>
-                      <input type="checkbox" readOnly checked={!!selected} className="accent-primary" />
-                      <span className="flex-1 text-sm text-gray-800">{p.name}</span>
-                      {selected && (
-                        <label className="flex items-center gap-1.5 text-xs text-gray-500" onClick={e => e.stopPropagation()}>
-                          <input type="checkbox" checked={selected.isUpsell} onChange={() => toggleUpsell(p.id)} className="accent-primary" />
-                          Upsell
-                        </label>
+                    <div key={p.id}>
+                      <div className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer ${selected ? 'bg-primary/5 border border-primary/20' : 'hover:bg-gray-50'}`}
+                        onClick={() => toggleProduct(p.id)}>
+                        <input type="checkbox" readOnly checked={!!selected} className="accent-primary" />
+                        <span className="flex-1 text-sm text-gray-800">{p.name}</span>
+                        {selected && (
+                          <label className="flex items-center gap-1.5 text-xs text-gray-500" onClick={e => e.stopPropagation()}>
+                            <input type="checkbox" checked={selected.isUpsell} onChange={() => toggleUpsell(p.id)} className="accent-yellow-500" />
+                            <span className={selected.isUpsell ? 'text-yellow-700 font-semibold' : ''}>Order Bump</span>
+                          </label>
+                        )}
+                      </div>
+                      {selected?.isUpsell && (
+                        <BumpConfigPanel
+                          productId={p.id}
+                          config={bumpConfigs[p.id]}
+                          onChange={updateBumpConfig}
+                        />
                       )}
                     </div>
                   );
