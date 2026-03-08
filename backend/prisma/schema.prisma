@@ -337,6 +337,33 @@ model WhatsappMessageLog {
   @@map("whatsapp_message_logs")
 }
 
+// ─────────────────── STORE SETTINGS ───────────────────
+
+model StoreSettings {
+  id                    String   @id @default("singleton")
+  storeName             String   @default("My Store")
+  storeCountry          String   @default("Nigeria")
+  officeState           String?
+  warehouseState        String?
+  storeAddress          String?
+  phoneNumber           String?
+  whatsappNumber        String?
+  email                 String?
+  invoiceFooterMessage  String?
+
+  // Form settings
+  preventDuplicateOrders Boolean @default(false)
+
+  // Notification settings
+  notifyLowStock        Boolean  @default(false)
+  notifyScheduledOrders Boolean  @default(false)
+  sendCustomerInvoiceWa Boolean  @default(false)
+
+  updatedAt             DateTime @updatedAt
+
+  @@map("store_settings")
+}
+
 // ─────────────────── AUDIT LOG ───────────────────
 
 model AuditLog {

@@ -18,6 +18,7 @@ import WaTemplates from './pages/WaTemplates';
 import WaBroadcast from './pages/WaBroadcast';
 import WaAutomation from './pages/WaAutomation';
 import Settings from './pages/Settings';
+import PublicOrderForm from './pages/PublicOrderForm';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,6 +35,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/form/:slug" element={<PublicOrderForm />} />
 
           <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />

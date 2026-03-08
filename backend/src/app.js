@@ -13,8 +13,12 @@ import ordersRoutes     from './modules/orders/orders.routes.js';
 import agentsRoutes     from './modules/agents/agents.routes.js';
 import whatsappRoutes   from './modules/whatsapp/whatsapp.routes.js';
 import formsRoutes      from './modules/forms/forms.routes.js';
+import settingsRoutes   from './modules/settings/settings.routes.js';
 
 const app = express();
+
+// Trust nginx reverse proxy (needed for rate-limiter + real IPs behind EasyPanel)
+app.set('trust proxy', 1);
 
 // ── Core middleware ──────────────────────────────────────────────────────────
 app.use(cors({
@@ -36,6 +40,7 @@ app.use('/api/orders',             ordersRoutes);
 app.use('/api/agents',             agentsRoutes);
 app.use('/api/whatsapp',           whatsappRoutes);
 app.use('/api/forms',              formsRoutes);
+app.use('/api/settings',           settingsRoutes);
 
 // Health check
 app.get('/health', (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
