@@ -1,0 +1,356 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────── USERS & AUTH ───────────────────
+
+enum UserRole {
+  ADMIN
+  STAFF
+  SUPERVISOR
+  PARTNER
+  CUSTOMER_SUPPORT
+  ACCOUNTANT
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         UserRole  @default(STAFF)
+  status       Boolean   @default(true)
+  lastLoginAt  DateTime?
+  permissions  Json      @default("{}")
+  salary       Decimal?  @db.Decimal(12, 2)
+  bonus        Decimal?  @db.Decimal(12, 2)
+  commission   Decimal?  @db.Decimal(5, 2)
+  bannedIps    String[]  @default([])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  orders    Order[]    @relation("AssignedStaff")
+  auditLogs AuditLog[]
+
+  @@map("users")
+}
+
+// ─────────────────── PRODUCT CATEGORIES ───────────────────
+
+model ProductCategory {
+  id            String   @id @default(cuid())
+  name          String
+  brandName     String?
+  brandPhone    String?
+  brandEmail    String?
+  brandWhatsapp String?
+  senderId      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  products Product[]
+
+  @@map("product_categories")
+}
+
+// ─────────────────── PRODUCTS ───────────────────
+
+model Product {
+  id                String          @id @default(cuid())
+  name              String
+  categoryId        String
+  category          ProductCategory @relation(fields: [categoryId], references: [id])
+  country           String?
+  costPrice         Decimal         @db.Decimal(12, 2)
+  stock             Int             @default(0)
+  status            Boolean         @default(true)
+  variations        Json            @default("[]")
+  pricingTiers      Json            @default("[]")
+  stateDeliveryFees Json            @default("{}")
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  formProducts FormProduct[]
+  orderItems   OrderItem[]
+
+  @@map("products")
+}
+
+// ─────────────────── AGENTS ───────────────────
+
+model Agent {
+  id          String   @id @default(cuid())
+  name        String
+  companyName String?
+  country     String   @default("Nigeria")
+  states      String[]
+  address     String?
+  phone       String?
+  phone2      String?
+  status      Boolean  @default(true)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orders Order[]
+
+  @@map("agents")
+}
+
+// ─────────────────── ORDERS ───────────────────
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  AWAITING
+  DELIVERED
+  SCHEDULED
+  CANCELLED
+  COMMITMENT_FEE_REQUESTED
+  NOT_PICKING_CALLS
+  SWITCHED_OFF
+  FAILED
+  DELETED
+  BANNED
+  SHIPPED
+  OPEN_RECORD
+  CUSTOM
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  REMITTED
+}
+
+model Order {
+  id              String        @id @default(cuid())
+  orderNumber     String        @unique
+  customerName    String
+  customerPhone   String
+  customerPhone2  String?
+  customerEmail   String?
+  address         String
+  state           String
+  city            String?
+  country         String        @default("Nigeria")
+  ipAddress       String?
+  status          OrderStatus   @default(PENDING)
+  paymentStatus   PaymentStatus @default(UNPAID)
+  source          String        @default("manual")
+  formId          String?
+  tags            String[]      @default([])
+  totalAmount     Decimal       @db.Decimal(12, 2)
+  deliveryFee     Decimal       @db.Decimal(12, 2) @default(0)
+  commitmentFee   Decimal?      @db.Decimal(12, 2)
+  notes           String?
+  comment         String?
+  scheduledDate   DateTime?
+  deliveryDate    DateTime?
+  followUpDate    DateTime?
+  agentId         String?
+  agent           Agent?        @relation(fields: [agentId], references: [id])
+  assignedStaffId String?
+  assignedStaff   User?         @relation("AssignedStaff", fields: [assignedStaffId], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  items         OrderItem[]
+  statusHistory OrderStatusHistory[]
+  whatsappLogs  WhatsappMessageLog[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([customerPhone])
+  @@index([state])
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  variation   String?
+  pricingTier String?
+  quantity    Int
+  unitPrice   Decimal @db.Decimal(12, 2)
+  subtotal    Decimal @db.Decimal(12, 2)
+
+  @@map("order_items")
+}
+
+model OrderStatusHistory {
+  id          String      @id @default(cuid())
+  orderId     String
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromStatus  OrderStatus?
+  toStatus    OrderStatus
+  changedById String?
+  note        String?
+  createdAt   DateTime    @default(now())
+
+  @@map("order_status_history")
+}
+
+// ─────────────────── CART ABANDONMENT ───────────────────
+
+model AbandonedCart {
+  id               String   @id @default(cuid())
+  formId           String?
+  form             Form?    @relation(fields: [formId], references: [id])
+  customerName     String
+  customerPhone    String
+  customerEmail    String?
+  ipAddress        String?
+  productData      Json
+  recoveryStatus   String   @default("pending")
+  recoveredOrderId String?
+  messageSentAt    DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([recoveryStatus])
+  @@index([createdAt])
+  @@map("abandoned_carts")
+}
+
+// ─────────────────── FORMS ───────────────────
+
+model Form {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  status        Boolean  @default(true)
+  hits          Int      @default(0)
+  conversions   Int      @default(0)
+  abandonments  Int      @default(0)
+  embedSettings Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  products    FormProduct[]
+  abandonment AbandonedCart[]
+
+  @@map("forms")
+}
+
+model FormProduct {
+  id           String  @id @default(cuid())
+  formId       String
+  form         Form    @relation(fields: [formId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product @relation(fields: [productId], references: [id])
+  isUpsell     Boolean @default(false)
+  displayOrder Int     @default(0)
+
+  @@map("form_products")
+}
+
+// ─────────────────── WHATSAPP ───────────────────
+
+enum WaAccountStatus {
+  CONNECTED
+  DISCONNECTED
+  CONNECTING
+  EXPIRED
+}
+
+model WhatsappAccount {
+  id             String          @id @default(cuid())
+  instanceName   String          @unique
+  phoneNumber    String
+  displayName    String?
+  status         WaAccountStatus @default(DISCONNECTED)
+  expiresAt      DateTime?
+  broadcastDelay Int             @default(3000)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  templates       WhatsappTemplate[]
+  automationRules WhatsappAutomation[]
+  messageLogs     WhatsappMessageLog[]
+
+  @@map("whatsapp_accounts")
+}
+
+model WhatsappTemplate {
+  id          String          @id @default(cuid())
+  accountId   String
+  account     WhatsappAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  name        String
+  messageType String
+  content     String
+  mediaUrl    String?
+  mediaType   String?
+  productId   String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  automationRules WhatsappAutomation[]
+
+  @@map("whatsapp_templates")
+}
+
+model WhatsappAutomation {
+  id            String          @id @default(cuid())
+  accountId     String
+  account       WhatsappAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  productId     String?
+  triggerStatus OrderStatus
+  templateId    String?
+  template      WhatsappTemplate? @relation(fields: [templateId], references: [id])
+  customMessage String?
+  mediaUrl      String?
+  delayMinutes  Int             @default(0)
+  timezone      String          @default("Africa/Lagos")
+  enabled       Boolean         @default(true)
+  sentCount     Int             @default(0)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@map("whatsapp_automation")
+}
+
+model WhatsappMessageLog {
+  id             String          @id @default(cuid())
+  accountId      String
+  account        WhatsappAccount @relation(fields: [accountId], references: [id])
+  orderId        String?
+  order          Order?          @relation(fields: [orderId], references: [id])
+  toPhone        String
+  message        String
+  mediaUrl       String?
+  status         String          @default("sent")
+  evolutionMsgId String?
+  errorMessage   String?
+  sentAt         DateTime        @default(now())
+
+  @@map("whatsapp_message_logs")
+}
+
+// ─────────────────── AUDIT LOG ───────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  details    Json     @default("{}")
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
