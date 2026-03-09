@@ -385,4 +385,3 @@ export async function exportOrdersToExcel(query, res) {
     rows,
   });
 }
-}
