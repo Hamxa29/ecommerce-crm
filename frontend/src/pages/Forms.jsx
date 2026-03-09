@@ -3,31 +3,64 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formsApi } from '@/api/forms.api';
 import { productsApi } from '@/api/products.api';
 import { formatDate } from '@/lib/utils';
-import { Plus, Pencil, Trash2, Code, ExternalLink, FileText, ToggleLeft, ToggleRight, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  Plus, Pencil, Trash2, Code, ExternalLink, FileText,
+  ToggleLeft, ToggleRight, ChevronDown, ChevronUp, GripVertical,
+} from 'lucide-react';
 
-const DEFAULT_BUMP_CONFIG = {
-  headline: 'Would You Like To Add To Your Order:',
-  benefit: '',
-  ctaText: 'Yes, I Will Take It!',
-  urgencyText: 'This offer is only available here — not available elsewhere',
-  imageUrl: '',
-  bumpPrice: '',
-  regularPrice: '',
+// ── Default embed settings ────────────────────────────────────────────────────
+const DEFAULT_FIELDS = {
+  name:    { show: true,  required: true,  label: 'Your Name' },
+  phone:   { show: true,  required: true,  label: 'Your Phone Number' },
+  phone2:  { show: true,  required: false, label: 'WhatsApp Number' },
+  email:   { show: false, required: false, label: 'Your Email Address To Get Receipt' },
+  address: { show: true,  required: true,  label: 'Your Full Address' },
+  state:   { show: true,  required: true,  label: 'Your Delivery State' },
+  age:     { show: false, required: false, label: 'Your Age' },
 };
 
+const DEFAULT_SETTINGS = {
+  header: 'Please Fill The Form Below To Place Your Order',
+  subheader: 'Only Serious Buyers Should Fill The Form Below',
+  submitText: 'ORDER NOW →',
+  fields: DEFAULT_FIELDS,
+  customFields: [],
+  bumps: {},
+};
+
+const FIELD_META = {
+  name:    { title: 'Name' },
+  phone:   { title: 'Phone Number', note: 'Shows +234 prefix' },
+  phone2:  { title: 'WhatsApp Number', note: 'Shows +234 prefix' },
+  email:   { title: 'Email Address' },
+  address: { title: 'Full Address' },
+  state:   { title: 'Delivery State', note: 'State dropdown' },
+  age:     { title: 'Age' },
+};
+
+// ── Mini Toggle ───────────────────────────────────────────────────────────────
+function Toggle({ checked, onChange, label }) {
+  return (
+    <button type="button" onClick={() => onChange(!checked)}
+      className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${checked ? 'bg-primary' : 'bg-gray-300'}`}>
+      <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${checked ? 'left-5' : 'left-0.5'}`} />
+      {label && <span className="sr-only">{label}</span>}
+    </button>
+  );
+}
+
+// ── Embed Modal ───────────────────────────────────────────────────────────────
 function EmbedModal({ formId, onClose }) {
   const { data, isLoading } = useQuery({
     queryKey: ['form-embed', formId],
     queryFn: () => formsApi.getEmbed(formId),
   });
-
   const [copied, setCopied] = useState('');
   const copy = (text, key) => {
     navigator.clipboard.writeText(text);
     setCopied(key);
     setTimeout(() => setCopied(''), 2000);
   };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
       <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl">
@@ -69,63 +102,126 @@ function EmbedModal({ formId, onClose }) {
   );
 }
 
+// ── Bump Config Panel ─────────────────────────────────────────────────────────
 function BumpConfigPanel({ productId, config, onChange }) {
   const [open, setOpen] = useState(false);
-  const c = config ?? DEFAULT_BUMP_CONFIG;
+  const c = config ?? {};
   const set = (key, val) => onChange(productId, { ...c, [key]: val });
 
+  const tiers = c.tiers ?? [];
+  const addTier = () => set('tiers', [...tiers, { label: '', price: '' }]);
+  const updateTier = (i, key, val) => {
+    const next = tiers.map((t, idx) => idx === i ? { ...t, [key]: val } : t);
+    set('tiers', next);
+  };
+  const removeTier = (i) => set('tiers', tiers.filter((_, idx) => idx !== i));
+
+  const hasMultiTiers = tiers.length > 0;
+
   return (
-    <div className="ml-6 mt-2 border border-yellow-200 rounded-xl bg-yellow-50 overflow-hidden">
+    <div className="ml-6 mt-1.5 border border-yellow-200 rounded-xl bg-yellow-50 overflow-hidden">
       <button type="button" onClick={() => setOpen(o => !o)}
         className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-yellow-800 hover:bg-yellow-100 transition">
         <span>⚡ Configure Bump Offer</span>
         {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
       </button>
       {open && (
-        <div className="p-3 space-y-2 border-t border-yellow-200">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-0.5">Headline</label>
-            <input value={c.headline} onChange={e => set('headline', e.target.value)}
-              placeholder="Would You Like To Add To Your Order:"
-              className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
+        <div className="p-3 space-y-3 border-t border-yellow-200 text-xs">
+
+          {/* Headline & text */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block font-medium text-gray-600 mb-0.5">Headline</label>
+              <input value={c.headline ?? ''} onChange={e => set('headline', e.target.value)}
+                placeholder="Would You Like To Add To Your Order:"
+                className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
+            </div>
+            <div>
+              <label className="block font-medium text-gray-600 mb-0.5">CTA Button Text</label>
+              <input value={c.ctaText ?? ''} onChange={e => set('ctaText', e.target.value)}
+                placeholder="Yes, I Will Take It!"
+                className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
+            </div>
           </div>
+
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-0.5">Benefit / Description</label>
-            <input value={c.benefit} onChange={e => set('benefit', e.target.value)}
+            <label className="block font-medium text-gray-600 mb-0.5">Product Description / Benefit</label>
+            <input value={c.benefit ?? ''} onChange={e => set('benefit', e.target.value)}
               placeholder="e.g. Designed for safe driving at night"
               className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
           </div>
+
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-0.5">CTA Button Text</label>
-            <input value={c.ctaText} onChange={e => set('ctaText', e.target.value)}
-              placeholder="Yes, I Will Take It!"
+            <label className="block font-medium text-gray-600 mb-0.5">Scarcity / Urgency Text</label>
+            <input value={c.urgencyText ?? ''} onChange={e => set('urgencyText', e.target.value)}
+              placeholder="This offer is only available here"
               className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
           </div>
+
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-0.5">Urgency Text</label>
-            <input value={c.urgencyText} onChange={e => set('urgencyText', e.target.value)}
-              placeholder="This offer is only available here — not available elsewhere"
-              className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-0.5">Bump Price (NGN) *</label>
-              <input type="number" value={c.bumpPrice} onChange={e => set('bumpPrice', e.target.value)}
-                placeholder="e.g. 8000"
-                className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-0.5">Regular Price (NGN)</label>
-              <input type="number" value={c.regularPrice} onChange={e => set('regularPrice', e.target.value)}
-                placeholder="e.g. 13000 (optional)"
-                className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-0.5">Image URL (optional)</label>
-            <input value={c.imageUrl} onChange={e => set('imageUrl', e.target.value)}
+            <label className="block font-medium text-gray-600 mb-0.5">Bump Image URL (optional)</label>
+            <input value={c.imageUrl ?? ''} onChange={e => set('imageUrl', e.target.value)}
               placeholder="https://..."
               className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
+          </div>
+
+          {/* Pricing — either flat price OR multiple tiers */}
+          <div className="border border-yellow-300 rounded-xl p-3 space-y-2 bg-white">
+            <p className="font-semibold text-gray-700">Bump Pricing</p>
+
+            {!hasMultiTiers ? (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-medium text-gray-600 mb-0.5">Offer Price (₦) *</label>
+                  <input type="number" value={c.bumpPrice ?? ''} onChange={e => set('bumpPrice', e.target.value)}
+                    placeholder="e.g. 2000"
+                    className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
+                </div>
+                <div>
+                  <label className="block font-medium text-gray-600 mb-0.5">Regular Price (₦) <span className="font-normal text-gray-400">strikethrough</span></label>
+                  <input type="number" value={c.regularPrice ?? ''} onChange={e => set('regularPrice', e.target.value)}
+                    placeholder="e.g. 5000"
+                    className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {tiers.map((tier, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <input value={tier.label} onChange={e => updateTier(i, 'label', e.target.value)}
+                      placeholder={`Option name (e.g. Silver)`}
+                      className="flex-1 border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-400 text-xs">₦</span>
+                      <input type="number" value={tier.price} onChange={e => updateTier(i, 'price', e.target.value)}
+                        placeholder="Price"
+                        className="w-24 border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
+                    </div>
+                    <button type="button" onClick={() => removeTier(i)} className="text-red-400 hover:text-red-600 px-1">✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 pt-1">
+              {!hasMultiTiers ? (
+                <button type="button" onClick={addTier}
+                  className="text-xs text-yellow-700 underline hover:text-yellow-900">
+                  + Switch to multiple pricing options (like regular/silver/gold)
+                </button>
+              ) : (
+                <>
+                  <button type="button" onClick={addTier}
+                    className="text-xs bg-yellow-100 border border-yellow-300 text-yellow-800 rounded-lg px-3 py-1 hover:bg-yellow-200">
+                    + Add Option
+                  </button>
+                  <button type="button" onClick={() => set('tiers', [])}
+                    className="text-xs text-gray-400 underline hover:text-gray-600">
+                    Switch to single price
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -133,16 +229,33 @@ function BumpConfigPanel({ productId, config, onChange }) {
   );
 }
 
+// ── Main Form Builder Modal ───────────────────────────────────────────────────
 function FormModal({ form, onClose }) {
   const qc = useQueryClient();
   const isEdit = !!form;
+
+  // Merge saved embedSettings with defaults
+  const savedSettings = form?.embedSettings ?? {};
   const [name, setName] = useState(form?.name ?? '');
   const [slug, setSlug] = useState(form?.slug ?? '');
+  const [header, setHeader] = useState(savedSettings.header ?? DEFAULT_SETTINGS.header);
+  const [subheader, setSubheader] = useState(savedSettings.subheader ?? DEFAULT_SETTINGS.subheader);
+  const [submitText, setSubmitText] = useState(savedSettings.submitText ?? DEFAULT_SETTINGS.submitText);
+
+  // Field config: merge saved with defaults
+  const initFields = {};
+  Object.keys(DEFAULT_FIELDS).forEach(k => {
+    initFields[k] = { ...DEFAULT_FIELDS[k], ...(savedSettings.fields?.[k] ?? {}) };
+  });
+  const [fields, setFields] = useState(initFields);
+
+  const [customFields, setCustomFields] = useState(savedSettings.customFields ?? []);
   const [selectedProducts, setSelectedProducts] = useState(
     form?.products?.map(fp => ({ productId: fp.productId, isUpsell: fp.isUpsell })) ?? []
   );
-  const [bumpConfigs, setBumpConfigs] = useState(form?.embedSettings?.bumps ?? {});
+  const [bumpConfigs, setBumpConfigs] = useState(savedSettings.bumps ?? {});
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('fields'); // 'fields' | 'products' | 'style'
 
   const { data: allProducts = [] } = useQuery({
     queryKey: ['products-all'],
@@ -160,6 +273,14 @@ function FormModal({ form, onClose }) {
     if (!isEdit) setSlug(val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
   };
 
+  const setField = (key, prop, val) => setFields(f => ({ ...f, [key]: { ...f[key], [prop]: val } }));
+
+  const addCustomField = () => {
+    setCustomFields(cf => [...cf, { id: `cf_${Date.now()}`, label: '', required: false, fieldType: 'text' }]);
+  };
+  const updateCF = (id, key, val) => setCustomFields(cf => cf.map(f => f.id === id ? { ...f, [key]: val } : f));
+  const removeCF = (id) => setCustomFields(cf => cf.filter(f => f.id !== id));
+
   const toggleProduct = (productId) => {
     setSelectedProducts(prev => {
       const exists = prev.find(p => p.productId === productId);
@@ -173,90 +294,224 @@ function FormModal({ form, onClose }) {
       if (p.productId !== productId) return p;
       const nowUpsell = !p.isUpsell;
       if (nowUpsell && !bumpConfigs[productId]) {
-        setBumpConfigs(bc => ({ ...bc, [productId]: { ...DEFAULT_BUMP_CONFIG } }));
+        setBumpConfigs(bc => ({ ...bc, [productId]: { headline: 'Would You Like To Add To Your Order:', ctaText: 'Yes, I Will Take It!', urgencyText: 'This offer is only available here', tiers: [], bumpPrice: '' } }));
       }
       return { ...p, isUpsell: nowUpsell };
     }));
   };
 
-  const updateBumpConfig = (productId, config) => {
-    setBumpConfigs(prev => ({ ...prev, [productId]: config }));
-  };
-
   const handleSave = () => {
-    if (!name.trim() || !slug.trim()) return;
-    const bumpsForSave = {};
-    selectedProducts.filter(p => p.isUpsell).forEach(p => {
-      bumpsForSave[p.productId] = bumpConfigs[p.productId] ?? { ...DEFAULT_BUMP_CONFIG };
-    });
+    if (!name.trim() || !slug.trim()) return setError('Form name and slug are required');
     saveMutation.mutate({
-      name, slug, products: selectedProducts,
-      embedSettings: { bumps: bumpsForSave },
+      name: name.trim(),
+      slug: slug.trim(),
+      products: selectedProducts,
+      embedSettings: { header, subheader, submitText, fields, customFields, bumps: bumpConfigs },
     });
   };
 
   const products = Array.isArray(allProducts) ? allProducts : allProducts.data ?? [];
+  const TAB = 'px-3 py-1.5 text-xs font-medium rounded-lg transition';
+  const tabs = [
+    { id: 'fields', label: 'Form Fields' },
+    { id: 'products', label: 'Products & Bumps' },
+    { id: 'style', label: 'Style & Text' },
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-xl max-h-[92vh] flex flex-col">
         <div className="flex items-center justify-between p-5 border-b shrink-0">
           <h3 className="font-semibold text-gray-900">{isEdit ? 'Edit Form' : 'Create Form'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
         </div>
-        <div className="p-5 space-y-4 overflow-y-auto">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Form Name</label>
-            <input value={name} onChange={e => autoSlug(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-              placeholder="e.g. Slimming Tea Order Form" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">URL Slug</label>
-            <div className="flex items-center border rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary/30">
-              <span className="bg-gray-50 px-3 py-2 text-sm text-gray-500 border-r">/form/</span>
-              <input value={slug} onChange={e => setSlug(e.target.value)}
-                className="flex-1 px-3 py-2 text-sm focus:outline-none"
-                placeholder="slimming-tea" />
+
+        <div className="px-5 pt-4 space-y-3 shrink-0">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Form Name *</label>
+              <input value={name} onChange={e => autoSlug(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                placeholder="e.g. Posture Corrector Form" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">URL Slug *</label>
+              <div className="flex items-center border rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary/30">
+                <span className="bg-gray-50 px-2 py-2 text-xs text-gray-500 border-r shrink-0">/form/</span>
+                <input value={slug} onChange={e => setSlug(e.target.value)}
+                  className="flex-1 px-2 py-2 text-sm focus:outline-none min-w-0"
+                  placeholder="posture-form" />
+              </div>
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Products on this Form</label>
-            {products.length === 0 ? (
-              <p className="text-sm text-gray-400">No products found. Create products first.</p>
-            ) : (
-              <div className="space-y-1 max-h-72 overflow-y-auto border rounded-lg p-3">
-                {products.map(p => {
-                  const selected = selectedProducts.find(sp => sp.productId === p.id);
-                  return (
-                    <div key={p.id}>
-                      <div className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer ${selected ? 'bg-primary/5 border border-primary/20' : 'hover:bg-gray-50'}`}
-                        onClick={() => toggleProduct(p.id)}>
-                        <input type="checkbox" readOnly checked={!!selected} className="accent-primary" />
-                        <span className="flex-1 text-sm text-gray-800">{p.name}</span>
-                        {selected && (
-                          <label className="flex items-center gap-1.5 text-xs text-gray-500" onClick={e => e.stopPropagation()}>
-                            <input type="checkbox" checked={selected.isUpsell} onChange={() => toggleUpsell(p.id)} className="accent-yellow-500" />
-                            <span className={selected.isUpsell ? 'text-yellow-700 font-semibold' : ''}>Order Bump</span>
-                          </label>
-                        )}
-                      </div>
-                      {selected?.isUpsell && (
-                        <BumpConfigPanel
-                          productId={p.id}
-                          config={bumpConfigs[p.id]}
-                          onChange={updateBumpConfig}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+          {/* Tabs */}
+          <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+            {tabs.map(t => (
+              <button key={t.id} type="button" onClick={() => setActiveTab(t.id)}
+                className={`${TAB} flex-1 ${activeTab === t.id ? 'bg-white text-primary shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                {t.label}
+              </button>
+            ))}
           </div>
         </div>
-        <div className="p-5 border-t shrink-0 space-y-3">
+
+        <div className="flex-1 overflow-y-auto px-5 pb-3">
+
+          {/* ── Tab: Form Fields ── */}
+          {activeTab === 'fields' && (
+            <div className="py-3 space-y-3">
+              <div className="text-xs text-gray-500 bg-blue-50 rounded-lg px-3 py-2">
+                Toggle which fields appear on your form. Required fields show an asterisk (*).
+              </div>
+
+              {/* Standard fields table */}
+              <div className="border rounded-xl overflow-hidden">
+                <div className="grid grid-cols-[1fr_60px_60px] gap-0 bg-gray-50 border-b px-3 py-2 text-xs font-semibold text-gray-600">
+                  <span>Field Label</span>
+                  <span className="text-center">Required</span>
+                  <span className="text-center">Show</span>
+                </div>
+                {Object.entries(FIELD_META).map(([key, meta]) => (
+                  <div key={key} className={`grid grid-cols-[1fr_60px_60px] gap-0 px-3 py-2.5 items-center border-b last:border-b-0 ${!fields[key]?.show ? 'opacity-40' : ''}`}>
+                    <div className="space-y-1 pr-3">
+                      <div className="flex items-center gap-1.5">
+                        <GripVertical size={12} className="text-gray-300" />
+                        <span className="text-xs font-medium text-gray-700">{meta.title}</span>
+                        {meta.note && <span className="text-[10px] text-gray-400">({meta.note})</span>}
+                      </div>
+                      <input
+                        value={fields[key]?.label ?? ''}
+                        onChange={e => setField(key, 'label', e.target.value)}
+                        placeholder={DEFAULT_FIELDS[key].label}
+                        className="w-full border rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary/30 bg-gray-50"
+                      />
+                    </div>
+                    <div className="flex justify-center">
+                      <Toggle checked={fields[key]?.required ?? false} onChange={v => setField(key, 'required', v)} />
+                    </div>
+                    <div className="flex justify-center">
+                      <Toggle checked={fields[key]?.show ?? false} onChange={v => setField(key, 'show', v)} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Custom fields */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-semibold text-gray-700">Custom Fields</p>
+                  <button type="button" onClick={addCustomField}
+                    className="flex items-center gap-1 text-xs bg-primary text-white px-3 py-1.5 rounded-lg hover:bg-primary/90">
+                    <Plus size={12} /> Add Field
+                  </button>
+                </div>
+                {customFields.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-3 border border-dashed rounded-xl">
+                    No custom fields yet. Click "Add Field" to add one (e.g. "Occupation", "Nearest Bus Stop").
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {customFields.map(cf => (
+                      <div key={cf.id} className="flex items-center gap-2 bg-gray-50 border rounded-xl px-3 py-2">
+                        <input value={cf.label} onChange={e => updateCF(cf.id, 'label', e.target.value)}
+                          placeholder="Field label (e.g. Nearest Bus Stop)"
+                          className="flex-1 border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/30" />
+                        <select value={cf.fieldType} onChange={e => updateCF(cf.id, 'fieldType', e.target.value)}
+                          className="border rounded-lg px-2 py-1.5 text-xs focus:outline-none bg-white">
+                          <option value="text">Text</option>
+                          <option value="number">Number</option>
+                          <option value="textarea">Long Text</option>
+                        </select>
+                        <label className="flex items-center gap-1 text-xs text-gray-500 whitespace-nowrap">
+                          <input type="checkbox" checked={cf.required} onChange={e => updateCF(cf.id, 'required', e.target.checked)} className="accent-primary" />
+                          Required
+                        </label>
+                        <button type="button" onClick={() => removeCF(cf.id)} className="text-red-400 hover:text-red-600">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Tab: Products & Bumps ── */}
+          {activeTab === 'products' && (
+            <div className="py-3 space-y-3">
+              <div className="text-xs text-gray-500 bg-blue-50 rounded-lg px-3 py-2">
+                Select the main product(s) for this form. Check "Order Bump" to add a separate product as an add-on offer.
+              </div>
+              {products.length === 0 ? (
+                <p className="text-sm text-gray-400">No products found. Create products first.</p>
+              ) : (
+                <div className="space-y-1 max-h-[440px] overflow-y-auto border rounded-xl p-2">
+                  {products.map(p => {
+                    const selected = selectedProducts.find(sp => sp.productId === p.id);
+                    return (
+                      <div key={p.id}>
+                        <div className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer ${selected ? 'bg-primary/5 border border-primary/20' : 'hover:bg-gray-50 border border-transparent'}`}
+                          onClick={() => toggleProduct(p.id)}>
+                          <input type="checkbox" readOnly checked={!!selected} className="accent-primary" />
+                          <div className="flex-1">
+                            <span className="text-sm text-gray-800 font-medium">{p.name}</span>
+                            {p.pricingTiers?.length > 0 && (
+                              <span className="ml-2 text-xs text-gray-400">
+                                {p.pricingTiers.length} pricing option{p.pricingTiers.length !== 1 ? 's' : ''}
+                              </span>
+                            )}
+                          </div>
+                          {selected && (
+                            <label className="flex items-center gap-1.5 text-xs shrink-0" onClick={e => e.stopPropagation()}>
+                              <input type="checkbox" checked={selected.isUpsell}
+                                onChange={() => toggleUpsell(p.id)} className="accent-yellow-500" />
+                              <span className={`font-medium ${selected.isUpsell ? 'text-yellow-700' : 'text-gray-500'}`}>
+                                Order Bump
+                              </span>
+                            </label>
+                          )}
+                        </div>
+                        {selected?.isUpsell && (
+                          <BumpConfigPanel
+                            productId={p.id}
+                            config={bumpConfigs[p.id]}
+                            onChange={(id, cfg) => setBumpConfigs(prev => ({ ...prev, [id]: cfg }))}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Tab: Style & Text ── */}
+          {activeTab === 'style' && (
+            <div className="py-3 space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Form Header Text</label>
+                <input value={header} onChange={e => setHeader(e.target.value)}
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Form Sub-Header Text</label>
+                <input value={subheader} onChange={e => setSubheader(e.target.value)}
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Submit Button Text</label>
+                <input value={submitText} onChange={e => setSubmitText(e.target.value)}
+                  placeholder="ORDER NOW →"
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="p-5 border-t shrink-0 space-y-2">
           {error && <p className="text-sm text-red-500">{error}</p>}
           <div className="flex justify-end gap-3">
             <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">Cancel</button>
@@ -271,6 +526,7 @@ function FormModal({ form, onClose }) {
   );
 }
 
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function Forms() {
   const qc = useQueryClient();
   const [showModal, setShowModal] = useState(false);
@@ -296,10 +552,7 @@ export default function Forms() {
     <div className="space-y-5">
       {embedFormId && <EmbedModal formId={embedFormId} onClose={() => setEmbedFormId(null)} />}
       {(showModal || editForm) && (
-        <FormModal
-          form={editForm}
-          onClose={() => { setShowModal(false); setEditForm(null); }}
-        />
+        <FormModal form={editForm} onClose={() => { setShowModal(false); setEditForm(null); }} />
       )}
 
       <div className="flex items-center justify-between">

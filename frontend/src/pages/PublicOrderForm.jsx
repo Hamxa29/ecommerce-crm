@@ -148,12 +148,13 @@ function OrderBumpSection({ product, mainProductId, accepted, onToggle, selected
   const bumpPrice = cfg.bumpPrice ? Number(cfg.bumpPrice) : null;
   const regularPrice = cfg.regularPrice ? Number(cfg.regularPrice) : null;
 
-  // Only show tier selection if:
-  // 1. The bump is a DIFFERENT product from the main product (not the same product used twice)
-  // 2. AND the bump product has its own tiers
-  // 3. AND no flat bumpPrice is configured (flat price = no dropdown needed)
+  // Config tiers (from form builder) take top priority
+  // Fall back to product.pricingTiers only if different product and no flat bumpPrice
   const isSameAsMain = product.id === mainProductId;
-  const tiers = (!isSameAsMain && !bumpPrice) ? (product.pricingTiers ?? []) : [];
+  const configTiers = cfg.tiers ?? [];
+  const tiers = configTiers.length > 0
+    ? configTiers
+    : (!isSameAsMain && !bumpPrice ? (product.pricingTiers ?? []) : []);
 
   return (
     <div className="border-4 border-dashed border-yellow-400 bg-yellow-50 rounded-2xl p-5 space-y-4">
@@ -241,6 +242,9 @@ export default function PublicOrderForm() {
   const [city, setCity] = useState('');
   const [age, setAge] = useState('');
 
+  // Custom fields from form builder: { fieldId: value }
+  const [customFieldValues, setCustomFieldValues] = useState({});
+
   // Per-product selections
   const [selectedVariations, setSelectedVariations] = useState({});
   const [selectedTiers, setSelectedTiers] = useState({});
@@ -258,6 +262,7 @@ export default function PublicOrderForm() {
   const [errors, setErrors] = useState({});
   const abandonmentSent = useRef(false);
   const cartId = useRef(null); // ID of the AbandonedCart record created on phone blur
+  const startedAt = useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -315,9 +320,11 @@ export default function PublicOrderForm() {
     if (!bump?.accepted) return 0;
     const fp = form?.products?.find(p => p.productId === productId);
     const cfg = form?.embedSettings?.bumps?.[productId] ?? {};
-    // Flat bumpPrice takes priority over product tiers
+    // Config tiers (from form builder) take priority
+    if (cfg.tiers?.length > 0) return Number(cfg.tiers[bump.tierIdx ?? 0]?.price ?? 0);
+    // Flat bumpPrice
     if (cfg.bumpPrice) return Number(cfg.bumpPrice);
-    // Separate bump product with its own tiers
+    // Fallback: separate bump product with its own product tiers
     const mainProductId = mainProducts[0]?.productId;
     const isSameAsMain = fp?.productId === mainProductId;
     if (!isSameAsMain) {
@@ -336,10 +343,19 @@ export default function PublicOrderForm() {
 
   const validate = () => {
     const errs = {};
-    if (!customerName.trim()) errs.customerName = 'Required';
-    if (!customerPhone.trim()) errs.customerPhone = 'Required';
-    if (!address.trim()) errs.address = 'Required';
-    if (!state) errs.state = 'Required';
+    const flds = form?.embedSettings?.fields ?? {};
+    // Standard fields — validate if required (default true for core fields)
+    const req = (key, defaultReq = true) => (flds[key]?.required ?? defaultReq) && (flds[key]?.show ?? true);
+    if (req('name') && !customerName.trim()) errs.customerName = 'Required';
+    if (req('phone') && !customerPhone.trim()) errs.customerPhone = 'Required';
+    if (req('address') && !address.trim()) errs.address = 'Required';
+    if (req('state') && !state) errs.state = 'Required';
+    // Custom fields
+    for (const cf of (form?.embedSettings?.customFields ?? [])) {
+      if (cf.required && !(customFieldValues[cf.id] ?? '').toString().trim()) {
+        errs[`cf_${cf.id}`] = 'Required';
+      }
+    }
     return errs;
   };
 
@@ -360,18 +376,29 @@ export default function PublicOrderForm() {
     for (const fp of bumpProducts) {
       const bump = bumps[fp.productId];
       if (!bump?.accepted) continue;
-      const tiers = fp.product?.pricingTiers ?? [];
-      const tier = tiers[bump.tierIdx ?? 0];
       const cfg = form?.embedSettings?.bumps?.[fp.productId] ?? {};
-      const unitPrice = tiers.length > 0 ? Number(tier?.price ?? 0) : (cfg.bumpPrice ? Number(cfg.bumpPrice) : 0);
+      const configTiers = cfg.tiers ?? [];
+      const productTiers = fp.product?.pricingTiers ?? [];
+      const activeTiers = configTiers.length > 0 ? configTiers : productTiers;
+      const tier = activeTiers[bump.tierIdx ?? 0];
+      const unitPrice = getBumpPrice(fp.productId);
       items.push({ productId: fp.productId, variation: null, pricingTier: tier?.label ?? 'Bump',
         quantity: 1, unitPrice });
     }
 
     try {
+      // Build notes from custom fields
+      const customNotes = Object.entries(customFieldValues)
+        .filter(([, v]) => v)
+        .map(([id, v]) => {
+          const cf = form?.embedSettings?.customFields?.find(f => f.id === id);
+          return cf ? `${cf.label}: ${v}` : v;
+        }).join('\n');
+
       const { data } = await pub.post(`/forms/public/${slug}/submit`, {
         customerName, customerPhone, customerPhone2, customerEmail, address, state, city,
         deliveryFee: getDeliveryFee(), items,
+        notes: customNotes || undefined,
       });
       abandonmentSent.current = true;
       // Mark the abandoned cart as recovered
@@ -424,8 +451,10 @@ export default function PublicOrderForm() {
 
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-6 text-white text-center">
-            <h1 className="text-2xl font-bold">{form.name}</h1>
-            <p className="text-blue-200 text-sm mt-1">Only Serious Buyers Should Fill The Form Below</p>
+            <h1 className="text-2xl font-bold">{form.embedSettings?.header || form.name}</h1>
+            {(form.embedSettings?.subheader || 'Only Serious Buyers Should Fill The Form Below') && (
+              <p className="text-blue-200 text-sm mt-1">{form.embedSettings?.subheader || 'Only Serious Buyers Should Fill The Form Below'}</p>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="p-6 space-y-6">
@@ -509,59 +538,102 @@ export default function PublicOrderForm() {
             })}
 
             {/* ── Customer Info ───────────────────────────────────────────── */}
-            <div className="space-y-3">
-              <div>
-                <input value={customerName} onChange={e => { setCustomerName(e.target.value); if (!startedAt.current) startedAt.current = Date.now(); }}
-                  placeholder="Your Name *"
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm ${errors.customerName ? 'border-red-400' : 'border-gray-300'}`} />
-                {errors.customerName && <p className="text-xs text-red-500 mt-1">{errors.customerName}</p>}
-              </div>
+            {(() => {
+              const flds = form?.embedSettings?.fields ?? {};
+              const show = (key, def = true) => flds[key]?.show ?? def;
+              const lbl = (key, def) => flds[key]?.label || def;
+              const isReq = (key, def = true) => flds[key]?.required ?? def;
+              return (
+                <div className="space-y-3">
+                  {show('name') && (
+                    <div>
+                      <input value={customerName} onChange={e => { setCustomerName(e.target.value); if (!startedAt.current) startedAt.current = Date.now(); }}
+                        placeholder={`${lbl('name', 'Full Name')}${isReq('name') ? ' *' : ''}`}
+                        className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm ${errors.customerName ? 'border-red-400' : 'border-gray-300'}`} />
+                      {errors.customerName && <p className="text-xs text-red-500 mt-1">{errors.customerName}</p>}
+                    </div>
+                  )}
 
-              <div>
-                <div className="flex gap-2">
-                  <div className="flex items-center gap-1 px-3 py-3 border-2 border-gray-300 rounded-xl text-sm font-medium text-gray-600 bg-gray-50 shrink-0">
-                    +234 <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                  </div>
-                  <input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)}
-                    onBlur={e => handlePhoneBlur(e.target.value)}
-                    placeholder="Your Phone Number *" type="tel"
-                    className={`flex-1 px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm ${errors.customerPhone ? 'border-red-400' : 'border-gray-300'}`} />
+                  {show('phone') && (
+                    <div>
+                      <div className="flex gap-2">
+                        <div className="flex items-center gap-1 px-3 py-3 border-2 border-gray-300 rounded-xl text-sm font-medium text-gray-600 bg-gray-50 shrink-0">
+                          +234 <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                        </div>
+                        <input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)}
+                          onBlur={e => handlePhoneBlur(e.target.value)}
+                          placeholder={`${lbl('phone', 'Phone Number')}${isReq('phone') ? ' *' : ''}`} type="tel"
+                          className={`flex-1 px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm ${errors.customerPhone ? 'border-red-400' : 'border-gray-300'}`} />
+                      </div>
+                      {errors.customerPhone && <p className="text-xs text-red-500 mt-1">{errors.customerPhone}</p>}
+                    </div>
+                  )}
+
+                  {show('phone2', true) && (
+                    <div className="flex gap-2">
+                      <div className="flex items-center gap-1 px-3 py-3 border-2 border-gray-300 rounded-xl text-sm font-medium text-gray-600 bg-gray-50 shrink-0">
+                        +234 <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                      </div>
+                      <input value={customerPhone2} onChange={e => setCustomerPhone2(e.target.value)}
+                        placeholder={`${lbl('phone2', 'WhatsApp Number')}${isReq('phone2', false) ? ' *' : ''}`} type="tel"
+                        className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm" />
+                    </div>
+                  )}
+
+                  {show('email', false) && (
+                    <input value={customerEmail} onChange={e => setCustomerEmail(e.target.value)}
+                      placeholder={`${lbl('email', 'Email Address')}${isReq('email', false) ? ' *' : ''}`} type="email"
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm" />
+                  )}
+
+                  {show('address') && (
+                    <div>
+                      <input value={address} onChange={e => setAddress(e.target.value)}
+                        placeholder={`${lbl('address', 'Full Delivery Address')}${isReq('address') ? ' *' : ''}`}
+                        className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm ${errors.address ? 'border-red-400' : 'border-gray-300'}`} />
+                      {errors.address && <p className="text-xs text-red-500 mt-1">{errors.address}</p>}
+                    </div>
+                  )}
+
+                  {show('state') && (
+                    <div>
+                      <StateDropdown value={state} onChange={setState} hasError={!!errors.state} />
+                      {errors.state && <p className="text-xs text-red-500 mt-1">{errors.state}</p>}
+                    </div>
+                  )}
+
+                  {show('age', false) && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        {lbl('age', 'Age')}{isReq('age', false) ? ' *' : ''}
+                      </label>
+                      <input value={age} onChange={e => setAge(e.target.value)}
+                        placeholder="Enter your age" type="number"
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm" />
+                    </div>
+                  )}
+
+                  {/* Custom fields added via form builder */}
+                  {(form?.embedSettings?.customFields ?? []).map(cf => (
+                    <div key={cf.id}>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        {cf.label}{cf.required ? ' *' : ''}
+                      </label>
+                      {cf.type === 'textarea' ? (
+                        <textarea value={customFieldValues[cf.id] ?? ''} onChange={e => setCustomFieldValues(p => ({ ...p, [cf.id]: e.target.value }))}
+                          rows={3}
+                          className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm resize-none ${errors[`cf_${cf.id}`] ? 'border-red-400' : 'border-gray-300'}`} />
+                      ) : (
+                        <input value={customFieldValues[cf.id] ?? ''} onChange={e => setCustomFieldValues(p => ({ ...p, [cf.id]: e.target.value }))}
+                          type={cf.type === 'number' ? 'number' : 'text'}
+                          className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm ${errors[`cf_${cf.id}`] ? 'border-red-400' : 'border-gray-300'}`} />
+                      )}
+                      {errors[`cf_${cf.id}`] && <p className="text-xs text-red-500 mt-1">{errors[`cf_${cf.id}`]}</p>}
+                    </div>
+                  ))}
                 </div>
-                {errors.customerPhone && <p className="text-xs text-red-500 mt-1">{errors.customerPhone}</p>}
-              </div>
-
-              <div className="flex gap-2">
-                <div className="flex items-center gap-1 px-3 py-3 border-2 border-gray-300 rounded-xl text-sm font-medium text-gray-600 bg-gray-50 shrink-0">
-                  +234 <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                </div>
-                <input value={customerPhone2} onChange={e => setCustomerPhone2(e.target.value)}
-                  placeholder="Whatsapp Number *" type="tel"
-                  className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm" />
-              </div>
-
-              <input value={customerEmail} onChange={e => setCustomerEmail(e.target.value)}
-                placeholder="Your Email Address To Get Receipt (for your e-receipt)" type="email"
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm" />
-
-              <div>
-                <input value={address} onChange={e => setAddress(e.target.value)}
-                  placeholder="Your Full Address *"
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm ${errors.address ? 'border-red-400' : 'border-gray-300'}`} />
-                {errors.address && <p className="text-xs text-red-500 mt-1">{errors.address}</p>}
-              </div>
-
-              <div>
-                <StateDropdown value={state} onChange={setState} hasError={!!errors.state} />
-                {errors.state && <p className="text-xs text-red-500 mt-1">{errors.state}</p>}
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Your Age *</label>
-                <input value={age} onChange={e => setAge(e.target.value)}
-                  placeholder="Enter your age" type="number"
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm" />
-              </div>
-            </div>
+              );
+            })()}
 
             {/* ── Order Bumps (inline toggle sections) ───────────────────── */}
             {bumpProducts.map(fp => (
@@ -619,9 +691,10 @@ export default function PublicOrderForm() {
                 const price = getBumpPrice(fp.productId);
                 const bump = bumps[fp.productId];
                 const cfg = form?.embedSettings?.bumps?.[fp.productId] ?? {};
-                const isFlatPrice = !!cfg.bumpPrice;
-                const tiers = fp.product?.pricingTiers ?? [];
-                const tierLabel = !isFlatPrice && tiers.length > 0 ? tiers[bump?.tierIdx ?? 0]?.label : null;
+                const configTiers = cfg.tiers ?? [];
+                const productTiers = fp.product?.pricingTiers ?? [];
+                const activeTiers = configTiers.length > 0 ? configTiers : productTiers;
+                const tierLabel = !cfg.bumpPrice && activeTiers.length > 0 ? activeTiers[bump?.tierIdx ?? 0]?.label : null;
                 return (
                   <div key={fp.productId} className="space-y-1 border-t border-gray-100 pt-2">
                     <div className="flex justify-between">
@@ -658,7 +731,7 @@ export default function PublicOrderForm() {
             <button type="submit" disabled={submitting}
               className="w-full py-4 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-xl text-lg shadow-lg disabled:opacity-60 flex items-center justify-center gap-3 transition">
               {submitting && <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-              {submitting ? 'Processing...' : 'ORDER NOW →'}
+              {submitting ? 'Processing...' : (form?.embedSettings?.submitText || 'ORDER NOW →')}
             </button>
 
             <p className="text-center text-xs text-gray-400 pb-2">
