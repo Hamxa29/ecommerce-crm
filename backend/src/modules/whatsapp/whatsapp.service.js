@@ -44,8 +44,13 @@ export async function createAccount(instanceName, displayName) {
 
 export async function getAccountQR(id) {
   const account = await prisma.whatsappAccount.findUniqueOrThrow({ where: { id } });
-  const qrData = await getQRCode(account.instanceName);
-  return qrData;
+  try {
+    return await getQRCode(account.instanceName);
+  } catch (err) {
+    const status = err.response?.status ?? err.status;
+    if (status === 404) return { status: 'already_connected' };
+    throw err;
+  }
 }
 
 export async function refreshAccountState(id) {
