@@ -126,6 +126,7 @@ function FormModal({ form, onClose }) {
     form?.products?.map(fp => ({ productId: fp.productId, isUpsell: fp.isUpsell })) ?? []
   );
   const [bumpConfigs, setBumpConfigs] = useState(form?.embedSettings?.bumps ?? {});
+  const [error, setError] = useState('');
 
   const { data: allProducts = [] } = useQuery({
     queryKey: ['products-all'],
@@ -135,6 +136,7 @@ function FormModal({ form, onClose }) {
   const saveMutation = useMutation({
     mutationFn: (data) => isEdit ? formsApi.update(form.id, data) : formsApi.create(data),
     onSuccess: () => { qc.invalidateQueries(['forms']); onClose(); },
+    onError: (e) => setError(e.response?.data?.error ?? e.message ?? 'Failed to save form'),
   });
 
   const autoSlug = (val) => {
@@ -238,12 +240,15 @@ function FormModal({ form, onClose }) {
             )}
           </div>
         </div>
-        <div className="p-5 border-t shrink-0 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">Cancel</button>
-          <button onClick={handleSave} disabled={saveMutation.isPending || !name || !slug}
-            className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-60">
-            {saveMutation.isPending ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Form'}
-          </button>
+        <div className="p-5 border-t shrink-0 space-y-3">
+          {error && <p className="text-sm text-red-500">{error}</p>}
+          <div className="flex justify-end gap-3">
+            <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50">Cancel</button>
+            <button onClick={handleSave} disabled={saveMutation.isPending || !name || !slug}
+              className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-60">
+              {saveMutation.isPending ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Form'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
