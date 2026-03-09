@@ -171,6 +171,17 @@ export async function changeOrderStatus(id, newStatus, actorId, note, scheduledD
   return order;
 }
 
+export async function hardDeleteOrder(id, actorId) {
+  // Null out WA log foreign keys first (no cascade defined)
+  await prisma.whatsappMessageLog.updateMany({ where: { orderId: id }, data: { orderId: null } });
+  // Delete the order — items + statusHistory cascade automatically
+  await prisma.order.delete({ where: { id } });
+  if (actorId) {
+    await writeAuditLog({ userId: actorId, action: 'order.hard_delete', entityType: 'Order', entityId: id, details: {} });
+  }
+  return { ok: true };
+}
+
 export async function bulkAction(orderIds, action, payload, actorId) {
   const results = { success: 0, failed: 0 };
 
@@ -193,7 +204,7 @@ export async function bulkAction(orderIds, action, payload, actorId) {
           await prisma.order.update({ where: { id }, data: { comment: payload.comment } });
           break;
         case 'delete':
-          await changeOrderStatus(id, 'DELETED', actorId);
+          await hardDeleteOrder(id, actorId);
           break;
         case 'ban':
           await changeOrderStatus(id, 'BANNED', actorId);

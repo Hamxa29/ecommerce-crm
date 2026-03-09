@@ -88,7 +88,7 @@ const BULK_ACTIONS = [
   { value: 'status:SWITCHED_OFF', label: 'Number Switched Off' },
   { value: 'status:FAILED', label: 'Mark Failed' },
   { value: 'status:CANCELLED', label: 'Cancel Orders' },
-  { value: 'delete', label: 'Delete Orders' },
+  { value: 'delete', label: 'Delete Orders (Permanent)' },
 ];
 
 function AddOrderModal({ onClose }) {

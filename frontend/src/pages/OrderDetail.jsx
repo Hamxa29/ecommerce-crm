@@ -6,12 +6,14 @@ import { ORDER_STATUSES } from '@/lib/constants';
 import { formatNGN, formatDate } from '@/lib/utils';
 import OrderStatusBadge from '@/components/shared/OrderStatusBadge';
 import PhoneLink from '@/components/shared/PhoneLink';
-import { ArrowLeft, Clock, MessageCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Clock, MessageCircle, Loader2, Trash2 } from 'lucide-react';
+import { useAuthStore } from '@/stores/authStore';
 
 export default function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const user = useAuthStore(s => s.user);
   const [newStatus, setNewStatus] = useState('');
   const [note, setNote] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
@@ -24,6 +26,11 @@ export default function OrderDetail() {
   const statusMutation = useMutation({
     mutationFn: () => ordersApi.changeStatus(id, newStatus, note, scheduledDate || undefined),
     onSuccess: () => { qc.invalidateQueries(['order', id]); qc.invalidateQueries(['orders']); setNewStatus(''); setNote(''); setScheduledDate(''); },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => ordersApi.hardDelete(id),
+    onSuccess: () => { qc.invalidateQueries(['orders']); navigate('/orders'); },
   });
 
   if (isLoading) return (
@@ -53,7 +60,19 @@ export default function OrderDetail() {
           <h2 className="text-lg font-semibold text-gray-800">Order {order.orderNumber}</h2>
           <p className="text-sm text-gray-500">{formatDate(order.createdAt)}</p>
         </div>
-        <div className="ml-auto"><OrderStatusBadge status={order.status} size="md" /></div>
+        <div className="ml-auto flex items-center gap-2">
+          <OrderStatusBadge status={order.status} size="md" />
+          {user?.role === 'ADMIN' && (
+            <button
+              onClick={() => { if (window.confirm('Permanently delete this order? This cannot be undone.')) deleteMutation.mutate(); }}
+              disabled={deleteMutation.isPending}
+              className="p-1.5 rounded hover:bg-red-50 text-red-500 disabled:opacity-50"
+              title="Delete order permanently"
+            >
+              {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

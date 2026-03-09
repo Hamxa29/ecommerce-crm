@@ -16,5 +16,6 @@ router.post('/',                ctrl.create);
 router.get('/:id',              ctrl.getOne);
 router.put('/:id',              ctrl.update);
 router.put('/:id/status',       ctrl.changeStatus);
+router.delete('/:id',           ctrl.hardDelete);
 
 export default router;

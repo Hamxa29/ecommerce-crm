@@ -39,6 +39,12 @@ export async function bulk(req, res, next) {
   } catch (err) { next(err); }
 }
 
+export async function hardDelete(req, res, next) {
+  try {
+    res.json(await svc.hardDeleteOrder(req.params.id, req.user.id));
+  } catch (err) { next(err); }
+}
+
 export const importMiddleware = upload.single('file');
 
 export async function importOrders(req, res, next) {

@@ -12,4 +12,5 @@ export const ordersApi = {
   bulk:            (orderIds, action, payload) => client.post('/orders/bulk', { orderIds, action, payload }).then(r => r.data),
   export:          (params) => client.get('/orders/export', { params, responseType: 'blob' }).then(r => r.data),
   import:          (formData) => client.post('/orders/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data),
+  hardDelete:      (id) => client.delete(`/orders/${id}`).then(r => r.data),
 };
