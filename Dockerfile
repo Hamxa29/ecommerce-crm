@@ -6,7 +6,7 @@ RUN apk add --no-cache openssl
 WORKDIR /app
 
 COPY backend/package*.json ./
-RUN npm ci
+RUN npm install
 
 COPY backend/ .
 
