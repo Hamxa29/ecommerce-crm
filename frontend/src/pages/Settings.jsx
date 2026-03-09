@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { usersApi } from '@/api/users.api';
 import { NIGERIA_STATES } from '@/lib/constants';
 import client from '@/api/client';
-import { User, Lock, Server, Store, Bell, CheckCircle } from 'lucide-react';
+import { User, Lock, Server, Store, Bell, CheckCircle, History } from 'lucide-react';
 
 const settingsApi = {
   get:    ()     => client.get('/settings').then(r => r.data),
@@ -308,19 +308,73 @@ function SystemInfoSection() {
   );
 }
 
+// ── Audit Log Section ─────────────────────────────────────────────────────────
+function AuditLogSection() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['audit-logs'],
+    queryFn: () => client.get('/settings/audit-logs').then(r => r.data),
+  });
+
+  const logs = data ?? [];
+
+  return (
+    <div className="bg-white border rounded-xl p-6">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="p-2 bg-orange-50 text-orange-600 rounded-lg"><History size={16} /></div>
+        <h3 className="font-semibold text-gray-900">Audit Log</h3>
+        <span className="ml-auto text-xs text-gray-400">Last 100 actions</span>
+      </div>
+      {isLoading ? (
+        <div className="space-y-2">
+          {[1,2,3,4,5].map(i => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}
+        </div>
+      ) : logs.length === 0 ? (
+        <p className="text-sm text-gray-400 text-center py-8">No audit logs yet</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b text-gray-500 uppercase tracking-wide">
+                <th className="text-left py-2 pr-4">Action</th>
+                <th className="text-left py-2 pr-4">Entity</th>
+                <th className="text-left py-2 pr-4">User</th>
+                <th className="text-left py-2">Time</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {logs.map(log => (
+                <tr key={log.id} className="hover:bg-gray-50">
+                  <td className="py-2 pr-4 font-mono text-gray-700">{log.action}</td>
+                  <td className="py-2 pr-4 text-gray-500">{log.entityType} <span className="text-gray-400">{log.entityId?.slice(-6)}</span></td>
+                  <td className="py-2 pr-4 text-gray-600">{log.user?.name ?? '—'}</td>
+                  <td className="py-2 text-gray-400">{new Date(log.createdAt).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function Settings() {
+  const user = useAuthStore(s => s.user);
+  const isAdmin = user?.role === 'ADMIN';
+
   return (
     <div className="space-y-5 max-w-3xl">
       <div>
         <h1 className="text-xl font-semibold text-gray-900">Settings</h1>
         <p className="text-sm text-gray-500 mt-0.5">Manage your store and account preferences</p>
       </div>
-      <StoreSettingsSection />
-      <OrderSettingsSection />
+      {isAdmin && <StoreSettingsSection />}
+      {isAdmin && <OrderSettingsSection />}
       <ProfileSection />
       <PasswordSection />
       <SystemInfoSection />
+      {isAdmin && <AuditLogSection />}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
 
+// roles that can access each item (empty = everyone)
 const NAV_SECTIONS = [
   {
     label: 'Main',
@@ -29,35 +30,35 @@ const NAV_SECTIONS = [
     label: 'Catalogue',
     items: [
       { to: '/products', icon: Package, label: 'Products' },
-      { to: '/product-categories', icon: Tag, label: 'Categories' },
+      { to: '/product-categories', icon: Tag, label: 'Categories', roles: ['ADMIN', 'SUPERVISOR'] },
     ],
   },
   {
     label: 'People',
     items: [
-      { to: '/users', icon: Users, label: 'Users & Staff' },
-      { to: '/agents', icon: Truck, label: 'Agents' },
+      { to: '/users', icon: Users, label: 'Users & Staff', roles: ['ADMIN', 'SUPERVISOR'] },
+      { to: '/agents', icon: Truck, label: 'Agents', roles: ['ADMIN', 'SUPERVISOR', 'STAFF'] },
     ],
   },
   {
     label: 'Forms',
     items: [
-      { to: '/forms', icon: FileText, label: 'Order Forms' },
+      { to: '/forms', icon: FileText, label: 'Order Forms', roles: ['ADMIN', 'SUPERVISOR', 'STAFF'] },
     ],
   },
   {
     label: 'WhatsApp',
     items: [
-      { to: '/whatsapp/accounts', icon: Phone, label: 'Accounts' },
-      { to: '/whatsapp/templates', icon: ScrollText, label: 'Templates' },
-      { to: '/whatsapp/broadcast', icon: Radio, label: 'Broadcast' },
-      { to: '/whatsapp/automation', icon: Zap, label: 'Automation' },
+      { to: '/whatsapp/accounts', icon: Phone, label: 'Accounts', roles: ['ADMIN', 'SUPERVISOR'] },
+      { to: '/whatsapp/templates', icon: ScrollText, label: 'Templates', roles: ['ADMIN', 'SUPERVISOR', 'STAFF'] },
+      { to: '/whatsapp/broadcast', icon: Radio, label: 'Broadcast', roles: ['ADMIN', 'SUPERVISOR', 'STAFF'] },
+      { to: '/whatsapp/automation', icon: Zap, label: 'Automation', roles: ['ADMIN', 'SUPERVISOR'] },
     ],
   },
   {
     label: 'System',
     items: [
-      { to: '/settings', icon: Settings, label: 'Settings' },
+      { to: '/settings', icon: Settings, label: 'Settings', roles: ['ADMIN'] },
     ],
   },
 ];
@@ -95,14 +96,19 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-2 scrollbar-thin">
-        {NAV_SECTIONS.map((section) => (
+        {NAV_SECTIONS.map((section) => {
+          const visibleItems = section.items.filter(item =>
+            !item.roles || item.roles.includes(user?.role)
+          );
+          if (visibleItems.length === 0) return null;
+          return (
           <div key={section.label} className="mb-1">
             {!collapsed && (
               <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
                 {section.label}
               </p>
             )}
-            {section.items.map((item) => (
+            {visibleItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -121,7 +127,8 @@ export default function Sidebar() {
               </NavLink>
             ))}
           </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* User + Logout */}
