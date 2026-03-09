@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import client from '@/api/client';
 import { NIGERIA_STATES } from '@/lib/constants';
-import { Plus, Pencil, Trash2, Loader2, X, Users } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, X, Users, FileDown } from 'lucide-react';
+import { downloadBlob } from '@/lib/utils';
 
 const api = {
   list:   () => client.get('/agents').then(r => r.data),
   create: (d) => client.post('/agents', d).then(r => r.data),
   update: (id, d) => client.put(`/agents/${id}`, d).then(r => r.data),
   delete: (id) => client.delete(`/agents/${id}`).then(r => r.data),
+  export: () => client.get('/agents/export', { responseType: 'blob' }).then(r => r.data),
 };
 
 const emptyForm = { name:'', companyName:'', phone:'', phone2:'', country:'Nigeria', states:[], address:'', notes:'' };
@@ -90,6 +92,7 @@ export default function Agents() {
   const qc = useQueryClient();
   const [editAgent, setEditAgent] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const { data: agents = [], isLoading } = useQuery({ queryKey: ['agents'], queryFn: api.list });
   const deleteMutation = useMutation({
@@ -104,10 +107,22 @@ export default function Agents() {
           <h2 className="text-lg font-semibold text-gray-800">Agents</h2>
           <p className="text-sm text-gray-500">{agents.length} agents</p>
         </div>
-        <button onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90">
-          <Plus size={15} /> Add Agent
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={async () => {
+            setExporting(true);
+            try {
+              const blob = await api.export();
+              downloadBlob(blob, `agents-${new Date().toISOString().slice(0,10)}.xlsx`);
+            } finally { setExporting(false); }
+          }} disabled={exporting}
+            className="flex items-center gap-2 border bg-white text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-60">
+            {exporting ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />} Export
+          </button>
+          <button onClick={() => setShowAdd(true)}
+            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90">
+            <Plus size={15} /> Add Agent
+          </button>
+        </div>
       </div>
 
       {isLoading ? (

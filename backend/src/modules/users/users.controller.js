@@ -17,8 +17,9 @@ const updateSchema = createSchema.partial().omit({ password: true }).extend({
   password: z.string().min(6).optional(),
 });
 
-export const list   = (req, res, next) => svc.listUsers(req.query).then(r => res.json(r)).catch(next);
-export const getOne = (req, res, next) => svc.listUsers({ ...req.query, id: req.params.id }).then(r => res.json(r)).catch(next);
+export const list        = (req, res, next) => svc.listUsers(req.query).then(r => res.json(r)).catch(next);
+export const getOne      = (req, res, next) => svc.listUsers({ ...req.query, id: req.params.id }).then(r => res.json(r)).catch(next);
+export const exportExcel = (req, res, next) => svc.exportUsersToExcel(req.query, res).catch(next);
 
 export async function create(req, res, next) {
   try {

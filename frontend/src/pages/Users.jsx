@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usersApi } from '@/api/users.api';
 import { USER_ROLES } from '@/lib/constants';
-import { formatDate } from '@/lib/utils';
+import { formatDate, downloadBlob } from '@/lib/utils';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import EmptyState from '@/components/shared/EmptyState';
-import { Plus, Pencil, UserX, Search, Loader2, X } from 'lucide-react';
+import { Plus, Pencil, UserX, Search, Loader2, X, FileDown } from 'lucide-react';
 
 const PERMISSIONS = [
   { key: 'orders', label: 'Orders' },
@@ -121,6 +121,7 @@ export default function Users() {
   const [roleFilter, setRoleFilter] = useState('');
   const [modal, setModal] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['users', search, roleFilter],
@@ -141,10 +142,22 @@ export default function Users() {
           <h2 className="text-lg font-semibold text-gray-800">Users & Staff</h2>
           <p className="text-sm text-gray-500">{data?.pagination?.total ?? 0} total users</p>
         </div>
-        <button onClick={() => setModal('create')}
-          className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90">
-          <Plus size={15} /> Add User
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={async () => {
+            setExporting(true);
+            try {
+              const blob = await usersApi.export({ search: search || undefined, role: roleFilter || undefined });
+              downloadBlob(blob, `users-${new Date().toISOString().slice(0,10)}.xlsx`);
+            } finally { setExporting(false); }
+          }} disabled={exporting}
+            className="flex items-center gap-2 border bg-white text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-60">
+            {exporting ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />} Export
+          </button>
+          <button onClick={() => setModal('create')}
+            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90">
+            <Plus size={15} /> Add User
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border p-4 flex flex-wrap gap-3">

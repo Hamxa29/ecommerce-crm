@@ -15,4 +15,5 @@ export const productsApi = {
   update:    (id, d)  => client.put(`/products/${id}`, d).then(r => r.data),
   remove:    (id)     => client.delete(`/products/${id}`).then(r => r.data),
   duplicate: (id)     => client.post(`/products/${id}/duplicate`).then(r => r.data),
+  export:    (params) => client.get('/products/export', { params, responseType: 'blob' }).then(r => r.data),
 };

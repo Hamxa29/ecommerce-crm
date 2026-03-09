@@ -5,7 +5,8 @@ import * as ctrl from './agents.controller.js';
 const router = Router();
 router.use(authenticate);
 
-router.get('/',      ctrl.list);
+router.get('/export', ctrl.exportExcel);
+router.get('/',       ctrl.list);
 router.post('/',     ctrl.create);
 router.put('/:id',   ctrl.update);
 router.delete('/:id',ctrl.remove);

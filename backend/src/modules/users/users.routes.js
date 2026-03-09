@@ -6,6 +6,7 @@ import * as ctrl from './users.controller.js';
 const router = Router();
 router.use(authenticate);
 
+router.get('/export', requireRole('ADMIN', 'SUPERVISOR'), ctrl.exportExcel);
 router.get('/',       requireRole('ADMIN', 'SUPERVISOR'), ctrl.list);
 router.post('/',      requireRole('ADMIN'), ctrl.create);
 router.put('/:id',    requireRole('ADMIN'), ctrl.update);

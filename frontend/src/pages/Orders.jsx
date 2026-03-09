@@ -3,11 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ordersApi } from '@/api/orders.api';
 import { ORDER_STATUSES, NIGERIA_STATES } from '@/lib/constants';
-import { formatNGN, formatDate } from '@/lib/utils';
+import { formatNGN, formatDate, downloadBlob } from '@/lib/utils';
 import OrderStatusBadge from '@/components/shared/OrderStatusBadge';
 import PhoneLink from '@/components/shared/PhoneLink';
 import EmptyState from '@/components/shared/EmptyState';
-import { Search, Filter, RefreshCw, ChevronDown, CheckSquare, Loader2, X, Plus } from 'lucide-react';
+import { Search, Filter, RefreshCw, ChevronDown, CheckSquare, Loader2, X, Plus, FileDown } from 'lucide-react';
 
 function StateDropdown({ value, onChange }) {
   const [open, setOpen] = useState(false);
@@ -170,6 +170,7 @@ export default function Orders() {
   const [bulkAction, setBulkAction] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [page, setPage] = useState(1);
+  const [exporting, setExporting] = useState(false);
 
   const params = { status: activeTab || undefined, search: search || undefined, state: stateFilter || undefined, page, limit: 50 };
 
@@ -209,10 +210,22 @@ export default function Orders() {
           <h2 className="text-lg font-semibold text-gray-800">Orders</h2>
           <p className="text-sm text-gray-500">{total.toLocaleString()} total orders</p>
         </div>
-        <button onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90">
-          <Plus size={15} /> Add Order
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={async () => {
+            setExporting(true);
+            try {
+              const blob = await ordersApi.export({ status: activeTab || undefined, search: search || undefined, state: stateFilter || undefined });
+              downloadBlob(blob, `orders-${new Date().toISOString().slice(0,10)}.xlsx`);
+            } finally { setExporting(false); }
+          }} disabled={exporting}
+            className="flex items-center gap-2 border bg-white text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-60">
+            {exporting ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />} Export
+          </button>
+          <button onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90">
+            <Plus size={15} /> Add Order
+          </button>
+        </div>
       </div>
 
       {/* Status tabs */}

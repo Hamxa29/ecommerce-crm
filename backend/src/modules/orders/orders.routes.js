@@ -5,10 +5,11 @@ import * as ctrl from './orders.controller.js';
 const router = Router();
 router.use(authenticate);
 
-router.get('/stats',           ctrl.getStats);
+router.get('/stats',            ctrl.getStats);
+router.get('/export',           ctrl.exportExcel);
 router.get('/deliveries-today', ctrl.getDeliveries);
 router.get('/followups-today',  ctrl.getFollowups);
-router.get('/',                ctrl.list);
+router.get('/',                 ctrl.list);
 router.post('/',               ctrl.create);
 router.get('/:id',             ctrl.getOne);
 router.put('/:id',             ctrl.update);

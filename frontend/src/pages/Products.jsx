@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { productsApi, categoriesApi } from '@/api/products.api';
 import { NIGERIA_STATES } from '@/lib/constants';
-import { formatNGN } from '@/lib/utils';
+import { formatNGN, downloadBlob } from '@/lib/utils';
 import EmptyState from '@/components/shared/EmptyState';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
-import { Plus, Pencil, Trash2, Copy, Search, X, Loader2, PlusCircle, MinusCircle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Copy, Search, X, Loader2, PlusCircle, MinusCircle, FileDown } from 'lucide-react';
 
 function ProductModal({ product, onClose }) {
   const qc = useQueryClient();
@@ -158,6 +158,7 @@ export default function Products() {
   const [catFilter, setCatFilter] = useState('');
   const [modal, setModal] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['products', search, catFilter],
@@ -185,10 +186,22 @@ export default function Products() {
           <h2 className="text-lg font-semibold text-gray-800">Products</h2>
           <p className="text-sm text-gray-500">{data?.pagination?.total ?? 0} products</p>
         </div>
-        <button onClick={() => setModal('create')}
-          className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90">
-          <Plus size={15} /> Add Product
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={async () => {
+            setExporting(true);
+            try {
+              const blob = await productsApi.export({ search: search || undefined, categoryId: catFilter || undefined });
+              downloadBlob(blob, `products-${new Date().toISOString().slice(0,10)}.xlsx`);
+            } finally { setExporting(false); }
+          }} disabled={exporting}
+            className="flex items-center gap-2 border bg-white text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-60">
+            {exporting ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />} Export
+          </button>
+          <button onClick={() => setModal('create')}
+            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90">
+            <Plus size={15} /> Add Product
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border p-4 flex flex-wrap gap-3">

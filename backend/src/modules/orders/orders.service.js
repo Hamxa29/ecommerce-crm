@@ -2,6 +2,7 @@ import { prisma } from '../../config/database.js';
 import { parsePagination, paginatedResponse } from '../../utils/pagination.js';
 import { writeAuditLog } from '../../utils/auditLog.js';
 import { generateOrderNumber } from '../../utils/orderNumber.js';
+import { sendExcel } from '../../utils/excelExport.js';
 
 export async function listOrders(query) {
   const { skip, take, page, limit } = parsePagination(query);
@@ -305,4 +306,72 @@ export async function getFollowupsToday() {
     },
     orderBy: { updatedAt: 'desc' },
   });
+}
+
+export async function exportOrdersToExcel(query, res) {
+  const where = buildOrderWhere(query);
+  const orders = await prisma.order.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      items: { include: { product: { select: { name: true } } } },
+      agent: { select: { name: true } },
+      assignedStaff: { select: { name: true } },
+    },
+    take: 10000,
+  });
+
+  const rows = orders.map(o => ({
+    orderNumber:    o.orderNumber,
+    customerName:   o.customerName,
+    customerPhone:  o.customerPhone,
+    customerPhone2: o.customerPhone2 ?? '',
+    state:          o.state,
+    city:           o.city ?? '',
+    address:        o.address,
+    status:         o.status,
+    paymentStatus:  o.paymentStatus,
+    products:       o.items.map(i => `${i.product.name}${i.variation ? ` (${i.variation})` : ''} x${i.quantity}`).join(', '),
+    totalAmount:    Number(o.totalAmount),
+    deliveryFee:    Number(o.deliveryFee),
+    grandTotal:     Number(o.totalAmount) + Number(o.deliveryFee),
+    source:         o.source,
+    agent:          o.agent?.name ?? '',
+    assignedStaff:  o.assignedStaff?.name ?? '',
+    tags:           (o.tags ?? []).join(', '),
+    notes:          o.notes ?? '',
+    comment:        o.comment ?? '',
+    scheduledDate:  o.scheduledDate ? new Date(o.scheduledDate).toLocaleString() : '',
+    createdAt:      new Date(o.createdAt).toLocaleString(),
+  }));
+
+  await sendExcel(res, {
+    filename: `orders-${new Date().toISOString().slice(0, 10)}.xlsx`,
+    sheetName: 'Orders',
+    columns: [
+      { header: 'Order #',       key: 'orderNumber',    width: 18 },
+      { header: 'Customer',      key: 'customerName',   width: 22 },
+      { header: 'Phone',         key: 'customerPhone',  width: 16 },
+      { header: 'Phone 2',       key: 'customerPhone2', width: 16 },
+      { header: 'State',         key: 'state',          width: 16 },
+      { header: 'City',          key: 'city',           width: 14 },
+      { header: 'Address',       key: 'address',        width: 30 },
+      { header: 'Status',        key: 'status',         width: 18 },
+      { header: 'Payment',       key: 'paymentStatus',  width: 12 },
+      { header: 'Products',      key: 'products',       width: 40 },
+      { header: 'Total (₦)',     key: 'totalAmount',    width: 14 },
+      { header: 'Delivery (₦)', key: 'deliveryFee',    width: 14 },
+      { header: 'Grand Total (₦)', key: 'grandTotal',  width: 16 },
+      { header: 'Source',        key: 'source',         width: 12 },
+      { header: 'Agent',         key: 'agent',          width: 18 },
+      { header: 'Staff',         key: 'assignedStaff',  width: 18 },
+      { header: 'Tags',          key: 'tags',           width: 20 },
+      { header: 'Notes',         key: 'notes',          width: 25 },
+      { header: 'Comment',       key: 'comment',        width: 25 },
+      { header: 'Scheduled',     key: 'scheduledDate',  width: 20 },
+      { header: 'Created At',    key: 'createdAt',      width: 20 },
+    ],
+    rows,
+  });
+}
 }

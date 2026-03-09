@@ -5,6 +5,7 @@ export const getOne         = (req, res, next) => svc.getOrder(req.params.id).th
 export const getStats       = (req, res, next) => svc.getStats().then(r => res.json(r)).catch(next);
 export const getDeliveries  = (req, res, next) => svc.getDeliveriesToday().then(r => res.json(r)).catch(next);
 export const getFollowups   = (req, res, next) => svc.getFollowupsToday().then(r => res.json(r)).catch(next);
+export const exportExcel    = (req, res, next) => svc.exportOrdersToExcel(req.query, res).catch(next);
 
 export async function create(req, res, next) {
   try {
