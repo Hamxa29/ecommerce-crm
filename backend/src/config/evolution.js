@@ -9,9 +9,8 @@ const evo = axios.create({
 
 export async function sendText(instanceName, phone, message) {
   const { data } = await evo.post(`/message/sendText/${instanceName}`, {
-    number: normalizePhone(phone),
-    textMessage: { text: message },
-    options: { delay: 1200 },
+    number: normalizePhone(phone).replace('+', ''),
+    text: message,
   });
   return data;
 }
@@ -23,7 +22,7 @@ export async function sendMedia(instanceName, phone, message, mediaUrl, mediaTyp
     document: 'application/pdf',
   };
   const { data } = await evo.post(`/message/sendMedia/${instanceName}`, {
-    number: normalizePhone(phone),
+    number: normalizePhone(phone).replace('+', ''),
     mediatype: mediaType,
     mimetype: mimeMap[mediaType] ?? 'application/octet-stream',
     caption: message,
