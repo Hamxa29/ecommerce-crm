@@ -42,8 +42,9 @@ app.use('/api/whatsapp',           whatsappRoutes);
 app.use('/api/forms',              formsRoutes);
 app.use('/api/settings',           settingsRoutes);
 
-// Health check
-app.get('/health', (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
+// Health check — update BUILD to verify deploys are live
+const BUILD = '2026-03-09-v3';
+app.get('/health', (_req, res) => res.json({ ok: true, build: BUILD, ts: new Date().toISOString() }));
 
 // ── Error handler (must be last) ─────────────────────────────────────────────
 app.use(errorHandler);
