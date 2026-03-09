@@ -138,8 +138,7 @@ function SuccessScreen({ order, upsellProducts, upsellIdx, upsellLoading, onUpse
 }
 
 // ── Order Bump Section (inline toggle on form) ────────────────────────────────
-function OrderBumpSection({ product, accepted, onToggle, selectedTierIdx, onSelectTier, bumpConfig }) {
-  const tiers = product.pricingTiers ?? [];
+function OrderBumpSection({ product, mainProductId, accepted, onToggle, selectedTierIdx, onSelectTier, bumpConfig }) {
   const cfg = bumpConfig ?? {};
   const headline = cfg.headline || 'Would You Like To Add To Your Order:';
   const benefit = cfg.benefit || (product.variations?.[0]?.description ?? '');
@@ -148,6 +147,13 @@ function OrderBumpSection({ product, accepted, onToggle, selectedTierIdx, onSele
   const imageUrl = cfg.imageUrl || '';
   const bumpPrice = cfg.bumpPrice ? Number(cfg.bumpPrice) : null;
   const regularPrice = cfg.regularPrice ? Number(cfg.regularPrice) : null;
+
+  // Only show tier selection if:
+  // 1. The bump is a DIFFERENT product from the main product (not the same product used twice)
+  // 2. AND the bump product has its own tiers
+  // 3. AND no flat bumpPrice is configured (flat price = no dropdown needed)
+  const isSameAsMain = product.id === mainProductId;
+  const tiers = (!isSameAsMain && !bumpPrice) ? (product.pricingTiers ?? []) : [];
 
   return (
     <div className="border-4 border-dashed border-yellow-400 bg-yellow-50 rounded-2xl p-5 space-y-4">
@@ -185,7 +191,7 @@ function OrderBumpSection({ product, accepted, onToggle, selectedTierIdx, onSele
         </button>
       </div>
 
-      {/* Tier selection — shown after clicking Yes */}
+      {/* Tier selection — only shown for bump products with their own tiers, not flat-price bumps */}
       {accepted && tiers.length > 0 && (
         <div className="space-y-2 pt-1">
           {tiers.map((tier, i) => (
@@ -202,6 +208,13 @@ function OrderBumpSection({ product, accepted, onToggle, selectedTierIdx, onSele
               <span className="font-bold">₦{Number(tier.price).toLocaleString()}</span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Flat-price confirmation — shown when bumpPrice is set */}
+      {accepted && bumpPrice && (
+        <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-center">
+          <p className="text-sm font-bold text-green-700">Added at ₦{bumpPrice.toLocaleString()}</p>
         </div>
       )}
 
@@ -301,10 +314,17 @@ export default function PublicOrderForm() {
     const bump = bumps[productId];
     if (!bump?.accepted) return 0;
     const fp = form?.products?.find(p => p.productId === productId);
-    const tiers = fp?.product?.pricingTiers ?? [];
-    if (tiers.length > 0) return Number(tiers[bump.tierIdx ?? 0]?.price ?? 0);
     const cfg = form?.embedSettings?.bumps?.[productId] ?? {};
-    return cfg.bumpPrice ? Number(cfg.bumpPrice) : 0;
+    // Flat bumpPrice takes priority over product tiers
+    if (cfg.bumpPrice) return Number(cfg.bumpPrice);
+    // Separate bump product with its own tiers
+    const mainProductId = mainProducts[0]?.productId;
+    const isSameAsMain = fp?.productId === mainProductId;
+    if (!isSameAsMain) {
+      const tiers = fp?.product?.pricingTiers ?? [];
+      if (tiers.length > 0) return Number(tiers[bump.tierIdx ?? 0]?.price ?? 0);
+    }
+    return 0;
   };
 
   const getOrderTotal = () => {
@@ -548,6 +568,7 @@ export default function PublicOrderForm() {
               <OrderBumpSection
                 key={fp.productId}
                 product={fp.product}
+                mainProductId={mainProducts[0]?.productId}
                 accepted={!!bumps[fp.productId]?.accepted}
                 selectedTierIdx={bumps[fp.productId]?.tierIdx ?? 0}
                 bumpConfig={form.embedSettings?.bumps?.[fp.productId]}
@@ -595,21 +616,23 @@ export default function PublicOrderForm() {
               })}
 
               {bumpProducts.filter(fp => bumps[fp.productId]?.accepted).map(fp => {
+                const price = getBumpPrice(fp.productId);
                 const bump = bumps[fp.productId];
-                const tiers = fp.product?.pricingTiers ?? [];
-                const tier = tiers[bump?.tierIdx ?? 0];
                 const cfg = form?.embedSettings?.bumps?.[fp.productId] ?? {};
-                const price = tiers.length > 0 ? Number(tier?.price ?? 0) : (cfg.bumpPrice ? Number(cfg.bumpPrice) : 0);
+                const isFlatPrice = !!cfg.bumpPrice;
+                const tiers = fp.product?.pricingTiers ?? [];
+                const tierLabel = !isFlatPrice && tiers.length > 0 ? tiers[bump?.tierIdx ?? 0]?.label : null;
                 return (
-                  <div key={fp.productId} className="space-y-2 border-t border-gray-100 pt-2">
+                  <div key={fp.productId} className="space-y-1 border-t border-gray-100 pt-2">
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Upsell - {fp.product?.name}:</span>
-                      <span className="font-semibold text-gray-800 text-right max-w-[45%]">{tier?.label ?? 'Add-on'}</span>
+                      <span className="text-gray-500">Add-on — {fp.product?.name}:</span>
+                      <span className="font-semibold text-green-700">₦{price.toLocaleString()}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Upsell Price:</span>
-                      <span className="font-semibold text-gray-800">₦{price.toLocaleString()}</span>
-                    </div>
+                    {tierLabel && (
+                      <div className="flex justify-between text-xs text-gray-400">
+                        <span>Option:</span><span>{tierLabel}</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
