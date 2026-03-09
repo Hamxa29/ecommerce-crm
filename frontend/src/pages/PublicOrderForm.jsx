@@ -166,7 +166,8 @@ function OrderBumpSection({ product, mainProductId, accepted, onToggle, selected
         )}
         <h3 className="text-xl font-bold text-gray-800">{product.name}</h3>
         {benefit && <p className="text-sm text-gray-600 mt-1">{benefit}</p>}
-        {bumpPrice && (
+        {/* Only show flat price text when NOT in multi-tier mode */}
+        {bumpPrice && !tiers.length && (
           <p className="text-sm font-bold text-gray-800 mt-2">
             Kindly click the box below to add this to your order now for just{' '}
             <span className="text-green-600">₦{bumpPrice.toLocaleString()}</span>
@@ -212,8 +213,8 @@ function OrderBumpSection({ product, mainProductId, accepted, onToggle, selected
         </div>
       )}
 
-      {/* Flat-price confirmation — shown when bumpPrice is set */}
-      {accepted && bumpPrice && (
+      {/* Flat-price confirmation — only when no tiers (pure flat price mode) */}
+      {accepted && bumpPrice && !tiers.length && (
         <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-center">
           <p className="text-sm font-bold text-green-700">Added at ₦{bumpPrice.toLocaleString()}</p>
         </div>

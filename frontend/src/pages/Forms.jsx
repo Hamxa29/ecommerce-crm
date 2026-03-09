@@ -283,21 +283,29 @@ function FormModal({ form, onClose }) {
 
   const toggleProduct = (productId) => {
     setSelectedProducts(prev => {
-      const exists = prev.find(p => p.productId === productId);
-      if (exists) return prev.filter(p => p.productId !== productId);
+      const hasMain = prev.some(p => p.productId === productId && !p.isUpsell);
+      if (hasMain) {
+        // Remove ALL entries for this product (main + bump if any)
+        return prev.filter(p => p.productId !== productId);
+      }
       return [...prev, { productId, isUpsell: false }];
     });
   };
 
   const toggleUpsell = (productId) => {
-    setSelectedProducts(prev => prev.map(p => {
-      if (p.productId !== productId) return p;
-      const nowUpsell = !p.isUpsell;
-      if (nowUpsell && !bumpConfigs[productId]) {
-        setBumpConfigs(bc => ({ ...bc, [productId]: { headline: 'Would You Like To Add To Your Order:', ctaText: 'Yes, I Will Take It!', urgencyText: 'This offer is only available here', tiers: [], bumpPrice: '' } }));
+    setSelectedProducts(prev => {
+      const hasBump = prev.some(p => p.productId === productId && p.isUpsell);
+      if (hasBump) {
+        // Remove bump entry only — keep the main (isUpsell: false) entry
+        return prev.filter(p => !(p.productId === productId && p.isUpsell));
+      } else {
+        // Add a SECOND entry as bump — the main entry stays untouched
+        if (!bumpConfigs[productId]) {
+          setBumpConfigs(bc => ({ ...bc, [productId]: { headline: 'Would You Like To Add To Your Order:', ctaText: 'Yes, I Will Take It!', urgencyText: 'This offer is only available here', tiers: [], bumpPrice: '' } }));
+        }
+        return [...prev, { productId, isUpsell: true }];
       }
-      return { ...p, isUpsell: nowUpsell };
-    }));
+    });
   };
 
   const handleSave = () => {
@@ -449,12 +457,14 @@ function FormModal({ form, onClose }) {
               ) : (
                 <div className="space-y-1 max-h-[440px] overflow-y-auto border rounded-xl p-2">
                   {products.map(p => {
-                    const selected = selectedProducts.find(sp => sp.productId === p.id);
+                    const isMain = selectedProducts.some(sp => sp.productId === p.id && !sp.isUpsell);
+                    const isBump = selectedProducts.some(sp => sp.productId === p.id && sp.isUpsell);
+                    const isSelected = isMain || isBump;
                     return (
                       <div key={p.id}>
-                        <div className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer ${selected ? 'bg-primary/5 border border-primary/20' : 'hover:bg-gray-50 border border-transparent'}`}
+                        <div className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer ${isSelected ? 'bg-primary/5 border border-primary/20' : 'hover:bg-gray-50 border border-transparent'}`}
                           onClick={() => toggleProduct(p.id)}>
-                          <input type="checkbox" readOnly checked={!!selected} className="accent-primary" />
+                          <input type="checkbox" readOnly checked={isMain} className="accent-primary" />
                           <div className="flex-1">
                             <span className="text-sm text-gray-800 font-medium">{p.name}</span>
                             {p.pricingTiers?.length > 0 && (
@@ -463,17 +473,17 @@ function FormModal({ form, onClose }) {
                               </span>
                             )}
                           </div>
-                          {selected && (
+                          {isMain && (
                             <label className="flex items-center gap-1.5 text-xs shrink-0" onClick={e => e.stopPropagation()}>
-                              <input type="checkbox" checked={selected.isUpsell}
+                              <input type="checkbox" checked={isBump}
                                 onChange={() => toggleUpsell(p.id)} className="accent-yellow-500" />
-                              <span className={`font-medium ${selected.isUpsell ? 'text-yellow-700' : 'text-gray-500'}`}>
+                              <span className={`font-medium ${isBump ? 'text-yellow-700' : 'text-gray-500'}`}>
                                 Order Bump
                               </span>
                             </label>
                           )}
                         </div>
-                        {selected?.isUpsell && (
+                        {isBump && (
                           <BumpConfigPanel
                             productId={p.id}
                             config={bumpConfigs[p.id]}
