@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import app from './src/app.js';
 import { prisma } from './src/config/database.js';
+import { startAllJobs } from './src/jobs/scheduler.js';
 
 const PORT = process.env.PORT || 3001;
 
@@ -8,6 +9,9 @@ async function main() {
   // Verify DB connection
   await prisma.$connect();
   console.log('[DB] Connected to PostgreSQL');
+
+  // Start background jobs
+  startAllJobs();
 
   app.listen(PORT, () => {
     console.log(`[Server] Running on http://localhost:${PORT}`);

@@ -219,7 +219,7 @@ export async function getStats() {
   const startOfLastWeek = new Date(startOfThisWeek);
   startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
 
-  const [thisWeekOrders, lastWeekOrders, byStatus] = await Promise.all([
+  const [thisWeekOrders, lastWeekOrders, byStatus, abandonedByStatus] = await Promise.all([
     prisma.order.findMany({
       where: { createdAt: { gte: startOfThisWeek }, status: { notIn: ['DELETED'] } },
       select: { status: true, totalAmount: true, deliveryFee: true },
@@ -229,6 +229,7 @@ export async function getStats() {
       select: { status: true, totalAmount: true },
     }),
     prisma.order.groupBy({ by: ['status'], _count: { id: true } }),
+    prisma.abandonedCart.groupBy({ by: ['recoveryStatus'], _count: { id: true } }),
   ]);
 
   const sumAmount = (orders) => orders.reduce((s, o) => s + Number(o.totalAmount), 0);
@@ -240,6 +241,9 @@ export async function getStats() {
 
   const statusMap = {};
   byStatus.forEach(r => { statusMap[r.status] = r._count.id; });
+
+  const abandonedMap = {};
+  abandonedByStatus.forEach(r => { abandonedMap[r.recoveryStatus] = r._count.id; });
 
   return {
     thisWeek: {
@@ -261,6 +265,13 @@ export async function getStats() {
       amountChange: pctChange(thisWeekTotal, lastWeekTotal),
     },
     byStatus: statusMap,
+    abandoned: {
+      pending:   abandonedMap.pending   ?? 0,
+      messaged:  abandonedMap.messaged  ?? 0,
+      recovered: abandonedMap.recovered ?? 0,
+      ignored:   abandonedMap.ignored   ?? 0,
+      total: Object.values(abandonedMap).reduce((s, v) => s + v, 0),
+    },
   };
 }
 

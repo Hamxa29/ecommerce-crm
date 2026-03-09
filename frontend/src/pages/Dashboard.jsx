@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import client from '@/api/client';
 import StatCard from '@/components/shared/StatCard';
 import { formatNGN } from '@/lib/utils';
 import { ORDER_STATUSES } from '@/lib/constants';
-import { ShoppingBag, DollarSign, Package, TrendingUp, AlertCircle } from 'lucide-react';
+import { ShoppingBag, DollarSign, Package, TrendingUp, AlertCircle, ShoppingCart, MessageSquare, CheckCircle } from 'lucide-react';
 
 function fetchStats() {
   return client.get('/orders/stats').then(r => r.data);
@@ -96,10 +97,51 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Best sellers placeholder */}
+      {/* Abandoned Cart Recovery */}
       <div className="bg-white rounded-xl border p-6">
-        <h3 className="text-sm font-semibold text-gray-700 mb-1">Best Selling Products</h3>
-        <p className="text-xs text-gray-400">Coming in Phase 2</p>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700">Cart Abandonment Recovery</h3>
+            <p className="text-xs text-gray-400 mt-0.5">WhatsApp sent 3 min after phone captured</p>
+          </div>
+          <Link to="/abandoned-carts" className="text-xs text-primary hover:underline font-medium">View all →</Link>
+        </div>
+        {isLoading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[1,2,3,4].map(i => <div key={i} className="h-16 bg-gray-100 rounded-lg animate-pulse" />)}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="border rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <ShoppingCart size={14} className="text-gray-400" />
+                <p className="text-xs text-gray-500">Total</p>
+              </div>
+              <p className="text-2xl font-bold text-gray-800">{stats?.abandoned?.total ?? 0}</p>
+            </div>
+            <div className="border rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <AlertCircle size={14} className="text-yellow-500" />
+                <p className="text-xs text-gray-500">Pending</p>
+              </div>
+              <p className="text-2xl font-bold text-yellow-600">{stats?.abandoned?.pending ?? 0}</p>
+            </div>
+            <div className="border rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <MessageSquare size={14} className="text-blue-500" />
+                <p className="text-xs text-gray-500">WA Sent</p>
+              </div>
+              <p className="text-2xl font-bold text-blue-600">{stats?.abandoned?.messaged ?? 0}</p>
+            </div>
+            <div className="border rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <CheckCircle size={14} className="text-green-500" />
+                <p className="text-xs text-gray-500">Recovered</p>
+              </div>
+              <p className="text-2xl font-bold text-green-600">{stats?.abandoned?.recovered ?? 0}</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

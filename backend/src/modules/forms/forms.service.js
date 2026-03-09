@@ -159,3 +159,10 @@ export async function listAbandonedCarts(query) {
 export async function updateAbandonedCart(id, data) {
   return prisma.abandonedCart.update({ where: { id }, data });
 }
+
+export async function recoverCart(cartId) {
+  return prisma.abandonedCart.update({
+    where: { id: cartId },
+    data: { recoveryStatus: 'recovered' },
+  });
+}

@@ -55,3 +55,14 @@ export async function logoutInstance(instanceName) {
   const { data } = await evo.delete(`/instance/logout/${instanceName}`);
   return data;
 }
+
+export async function checkWhatsappNumber(instanceName, phone) {
+  try {
+    const { data } = await evo.post(`/chat/whatsappNumbers/${instanceName}`, {
+      numbers: [normalizePhone(phone)],
+    });
+    return data?.[0]?.exists ?? false;
+  } catch {
+    return false; // if check fails, don't send to avoid spamming non-WA numbers
+  }
+}

@@ -8,7 +8,8 @@ const router = Router();
 router.get('/public/:slug',          ctrl.publicGet);
 router.post('/public/:slug/hit',     ctrl.publicHit);
 router.post('/public/:slug/submit',  ctrl.publicSubmit);
-router.post('/public/:slug/abandon', ctrl.publicAbandon);
+router.post('/public/:slug/abandon',          ctrl.publicAbandon);
+router.post('/public/:slug/recover/:cartId', ctrl.publicRecover);
 
 // ── Authenticated routes ──────────────────────────────────────────────────────
 router.use(authenticate);

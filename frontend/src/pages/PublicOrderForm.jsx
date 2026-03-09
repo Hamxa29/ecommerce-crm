@@ -244,7 +244,7 @@ export default function PublicOrderForm() {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const abandonmentSent = useRef(false);
-  const startedAt = useRef(null);
+  const cartId = useRef(null); // ID of the AbandonedCart record created on phone blur
 
   useEffect(() => {
     (async () => {
@@ -262,25 +262,22 @@ export default function PublicOrderForm() {
     })();
   }, [slug]);
 
-  // Abandonment tracking
-  useEffect(() => {
-    const sendAbandonment = () => {
-      if (abandonmentSent.current || !customerPhone || placedOrder || !startedAt.current) return;
-      abandonmentSent.current = true;
+  // Early phone capture: create AbandonedCart as soon as phone number is filled
+  const handlePhoneBlur = async (phone) => {
+    if (abandonmentSent.current || cartId.current || !phone || phone.length < 7) return;
+    try {
       const mainFp = form?.products?.find(fp => !fp.isUpsell);
-      const body = JSON.stringify({
-        customerName, customerPhone,
-        productData: { productName: mainFp?.product?.name, price: getTierPrice(mainFp?.productId) },
+      const { data } = await pub.post(`/forms/public/${slug}/abandon`, {
+        customerName,
+        customerPhone: phone,
+        productData: {
+          productName: mainFp?.product?.name ?? '',
+          price: mainFp ? Number(mainFp.product?.pricingTiers?.[0]?.price ?? 0) : 0,
+        },
       });
-      if (navigator.sendBeacon) {
-        navigator.sendBeacon(`/api/forms/public/${slug}/abandon`, body);
-      } else {
-        pub.post(`/forms/public/${slug}/abandon`, JSON.parse(body)).catch(() => {});
-      }
-    };
-    window.addEventListener('beforeunload', sendAbandonment);
-    return () => window.removeEventListener('beforeunload', sendAbandonment);
-  }, [customerName, customerPhone, form, placedOrder, slug]);
+      cartId.current = data?.id ?? null;
+    } catch { /* silent — abandonment tracking is best-effort */ }
+  };
 
   const mainProducts = form?.products?.filter(fp => !fp.isUpsell) ?? [];
   const bumpProducts = form?.products?.filter(fp => fp.isUpsell) ?? [];
@@ -357,6 +354,10 @@ export default function PublicOrderForm() {
         deliveryFee: getDeliveryFee(), items,
       });
       abandonmentSent.current = true;
+      // Mark the abandoned cart as recovered
+      if (cartId.current) {
+        pub.post(`/forms/public/${slug}/recover/${cartId.current}`).catch(() => {});
+      }
       setPlacedOrder(data);
     } catch (err) {
       setErrors({ submit: err?.response?.data?.error ?? 'Failed to place order. Please try again.' });
@@ -501,7 +502,8 @@ export default function PublicOrderForm() {
                   <div className="flex items-center gap-1 px-3 py-3 border-2 border-gray-300 rounded-xl text-sm font-medium text-gray-600 bg-gray-50 shrink-0">
                     +234 <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                   </div>
-                  <input value={customerPhone} onChange={e => { setCustomerPhone(e.target.value); if (!startedAt.current) startedAt.current = Date.now(); }}
+                  <input value={customerPhone} onChange={e => setCustomerPhone(e.target.value)}
+                    onBlur={e => handlePhoneBlur(e.target.value)}
                     placeholder="Your Phone Number *" type="tel"
                     className={`flex-1 px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm ${errors.customerPhone ? 'border-red-400' : 'border-gray-300'}`} />
                 </div>

@@ -48,6 +48,10 @@ export async function publicAbandon(req, res, next) {
   } catch (e) { next(e); }
 }
 
+export async function publicRecover(req, res, next) {
+  try { res.json(await svc.recoverCart(req.params.cartId)); } catch (e) { next(e); }
+}
+
 // ── Abandoned carts (authenticated) ──────────────────────────────────────────
 
 export async function listAbandoned(req, res, next) {
