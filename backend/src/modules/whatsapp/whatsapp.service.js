@@ -10,20 +10,22 @@ export async function listAccounts() {
 }
 
 export async function createAccount(instanceName, displayName) {
-  // Try to create in Evolution API
-  // 403 = instance already exists there — skip and just register in our DB
+  // If already in our DB, just return it (idempotent)
+  const existing = await prisma.whatsappAccount.findUnique({ where: { instanceName } });
+  if (existing) return existing;
+
+  // Try to create in Evolution API; ignore 403 (instance already exists there)
   try {
     await createInstance(instanceName);
   } catch (err) {
     const status = err.response?.status;
     if (status !== 403) throw err;
-    // 403 means instance already exists in Evolution API — that's fine, continue
   }
 
   return prisma.whatsappAccount.create({
     data: {
       instanceName,
-      displayName,
+      displayName: displayName || instanceName,
       phoneNumber: '',
       status: 'DISCONNECTED',
     },
