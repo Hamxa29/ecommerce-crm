@@ -436,10 +436,10 @@ export default function PublicOrderForm() {
 
   if (placedOrder) return (
     <SuccessScreen order={placedOrder}
-      upsellProducts={bumpProducts.map(fp => fp.product)}
-      upsellIdx={upsellIdx} upsellLoading={upsellLoading}
-      onUpsellAccept={handleUpsellAccept}
-      onUpsellDecline={() => setUpsellIdx(i => i + 1)} />
+      upsellProducts={[]}
+      upsellIdx={0} upsellLoading={false}
+      onUpsellAccept={() => {}}
+      onUpsellDecline={() => {}} />
   );
 
   const deliveryFee = getDeliveryFee();
