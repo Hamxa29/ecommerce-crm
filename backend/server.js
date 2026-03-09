@@ -10,6 +10,13 @@ async function main() {
   await prisma.$connect();
   console.log('[DB] Connected to PostgreSQL');
 
+  // Safe schema migrations (idempotent column additions)
+  try {
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS "orderNotificationEmails" TEXT;
+    `);
+  } catch (_) { /* column already exists or DB doesn't support IF NOT EXISTS */ }
+
   // Start background jobs
   startAllJobs();
 

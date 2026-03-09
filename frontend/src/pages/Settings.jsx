@@ -135,7 +135,24 @@ function OrderSettingsSection() {
         <h3 className="font-semibold text-gray-900">Order & Notification Settings</h3>
       </div>
 
-      <div className="space-y-4">
+      {/* Order notification emails */}
+      <div>
+        <label className="block text-sm font-medium text-gray-800 mb-1">
+          New Order Notification Emails
+        </label>
+        <input
+          value={values.orderNotificationEmails ?? ''}
+          onChange={e => set('orderNotificationEmails', e.target.value)}
+          placeholder="you@gmail.com, colleague@gmail.com"
+          className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+        />
+        <p className="text-xs text-gray-400 mt-1">
+          Enter one or more emails (comma-separated). You'll receive an email for every new order placed via your forms.
+          Requires SMTP settings in your server environment (SMTP_HOST, SMTP_USER, SMTP_PASS).
+        </p>
+      </div>
+
+      <div className="border-t pt-4 space-y-4">
         {toggleItem('preventDuplicateOrders')({
           label: 'Prevent duplicate orders within 24 hours',
           desc: 'Block submissions from the same phone number more than once per day',

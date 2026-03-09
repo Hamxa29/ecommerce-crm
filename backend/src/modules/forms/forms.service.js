@@ -1,5 +1,6 @@
 import { prisma } from '../../config/database.js';
 import { generateOrderNumber } from '../../utils/orderNumber.js';
+import { sendNewOrderNotification } from '../../utils/emailNotification.js';
 
 export async function listForms() {
   return prisma.form.findMany({
@@ -119,6 +120,14 @@ export async function submitForm(slug, body) {
   });
 
   await prisma.form.update({ where: { id: form.id }, data: { conversions: { increment: 1 } } });
+
+  // Send email notification (non-blocking)
+  const orderWithItems = await prisma.order.findUnique({
+    where: { id: order.id },
+    include: { items: { include: { product: { select: { name: true } } } } },
+  });
+  sendNewOrderNotification(orderWithItems).catch(() => {});
+
   return order;
 }
 

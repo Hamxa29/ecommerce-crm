@@ -358,6 +358,7 @@ model StoreSettings {
   notifyLowStock        Boolean  @default(false)
   notifyScheduledOrders Boolean  @default(false)
   sendCustomerInvoiceWa Boolean  @default(false)
+  orderNotificationEmails String? // comma-separated emails to notify on new orders
 
   updatedAt             DateTime @updatedAt
 
