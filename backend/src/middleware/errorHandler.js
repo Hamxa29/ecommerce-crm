@@ -16,7 +16,9 @@ export function errorHandler(err, req, res, next) {
     return res.status(404).json({ error: 'Record not found' });
   }
 
-  res.status(err.status ?? 500).json({
+  // Use err.statusCode for our own HTTP errors; never forward upstream API status codes
+  const code = err.statusCode ?? (err.isAxiosError ? 500 : (err.status ?? 500));
+  res.status(code).json({
     error: err.message ?? 'Internal server error',
   });
 }
