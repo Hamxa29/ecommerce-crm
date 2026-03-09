@@ -10,8 +10,14 @@ export async function listAccounts() {
 }
 
 export async function createAccount(instanceName, displayName) {
-  // Create in Evolution API
-  await createInstance(instanceName);
+  // Try to create in Evolution API; ignore 403 "already in use" (instance pre-exists)
+  try {
+    await createInstance(instanceName);
+  } catch (err) {
+    const msg = err.response?.data?.response?.message?.[0] ?? '';
+    if (!msg.includes('already in use')) throw err;
+    // Instance already exists in Evolution API — just register it in our DB
+  }
 
   return prisma.whatsappAccount.create({
     data: {

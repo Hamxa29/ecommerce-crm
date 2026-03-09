@@ -185,33 +185,28 @@ function OrderBumpSection({ product, accepted, onToggle, selectedTierIdx, onSele
         </button>
       </div>
 
-      {/* Sub-options (pricing tiers) — shown when accepted */}
-      {accepted && tiers.length > 1 && (
-        <div className="space-y-2 pt-2">
-          <p className="text-sm font-semibold text-gray-700 text-center">Choose your option:</p>
+      {/* Tier selection — shown after clicking Yes */}
+      {accepted && tiers.length > 0 && (
+        <div className="space-y-2 pt-1">
           {tiers.map((tier, i) => (
             <div key={i} onClick={() => onSelectTier(i)}
               className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all ${
                 (selectedTierIdx ?? 0) === i ? 'bg-green-500 text-white shadow' : 'bg-white border border-gray-200 hover:border-green-300'
               }`}>
               <div className="flex items-center gap-3">
-                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${(selectedTierIdx ?? 0) === i ? 'border-white bg-white' : 'border-gray-300'}`}>
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${(selectedTierIdx ?? 0) === i ? 'border-white bg-white' : 'border-gray-300'}`}>
                   {(selectedTierIdx ?? 0) === i && <div className="w-3 h-3 bg-green-500 rounded-full" />}
                 </div>
                 <span className="font-medium text-sm">{tier.label}</span>
               </div>
-              <span className="font-bold">{formatNGN(tier.price)}</span>
+              <span className="font-bold">₦{Number(tier.price).toLocaleString()}</span>
             </div>
           ))}
         </div>
       )}
 
-      {accepted && tiers.length === 1 && (
-        <p className="text-center text-sm font-bold text-green-700">Added: {tiers[0].label} — {formatNGN(tiers[0].price)}</p>
-      )}
-
       {!accepted && (
-        <p className="text-center text-xs text-gray-500 italic">{urgencyText}</p>
+        <p className="text-center text-xs text-orange-600 font-semibold italic">{urgencyText}</p>
       )}
     </div>
   );
@@ -227,9 +222,11 @@ export default function PublicOrderForm() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerPhone2, setCustomerPhone2] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
   const [address, setAddress] = useState('');
   const [state, setState] = useState('');
   const [city, setCity] = useState('');
+  const [age, setAge] = useState('');
 
   // Per-product selections
   const [selectedVariations, setSelectedVariations] = useState({});
@@ -307,10 +304,10 @@ export default function PublicOrderForm() {
     const bump = bumps[productId];
     if (!bump?.accepted) return 0;
     const fp = form?.products?.find(p => p.productId === productId);
-    const cfg = form?.embedSettings?.bumps?.[productId] ?? {};
-    if (cfg.bumpPrice) return Number(cfg.bumpPrice);
     const tiers = fp?.product?.pricingTiers ?? [];
-    return Number(tiers[bump.tierIdx ?? 0]?.price ?? 0);
+    if (tiers.length > 0) return Number(tiers[bump.tierIdx ?? 0]?.price ?? 0);
+    const cfg = form?.embedSettings?.bumps?.[productId] ?? {};
+    return cfg.bumpPrice ? Number(cfg.bumpPrice) : 0;
   };
 
   const getOrderTotal = () => {
@@ -346,18 +343,17 @@ export default function PublicOrderForm() {
     for (const fp of bumpProducts) {
       const bump = bumps[fp.productId];
       if (!bump?.accepted) continue;
-      const cfg = form?.embedSettings?.bumps?.[fp.productId] ?? {};
-      const configPrice = cfg.bumpPrice ? Number(cfg.bumpPrice) : null;
       const tiers = fp.product?.pricingTiers ?? [];
       const tier = tiers[bump.tierIdx ?? 0];
-      const unitPrice = configPrice ?? Number(tier?.price ?? 0);
+      const cfg = form?.embedSettings?.bumps?.[fp.productId] ?? {};
+      const unitPrice = tiers.length > 0 ? Number(tier?.price ?? 0) : (cfg.bumpPrice ? Number(cfg.bumpPrice) : 0);
       items.push({ productId: fp.productId, variation: null, pricingTier: tier?.label ?? 'Bump',
         quantity: 1, unitPrice });
     }
 
     try {
       const { data } = await pub.post(`/forms/public/${slug}/submit`, {
-        customerName, customerPhone, customerPhone2, address, state, city,
+        customerName, customerPhone, customerPhone2, customerEmail, address, state, city,
         deliveryFee: getDeliveryFee(), items,
       });
       abandonmentSent.current = true;
@@ -492,27 +488,44 @@ export default function PublicOrderForm() {
             })}
 
             {/* ── Customer Info ───────────────────────────────────────────── */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
                 <input value={customerName} onChange={e => { setCustomerName(e.target.value); if (!startedAt.current) startedAt.current = Date.now(); }}
-                  placeholder="Your Full Name *"
+                  placeholder="Your Name *"
                   className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm ${errors.customerName ? 'border-red-400' : 'border-gray-300'}`} />
                 {errors.customerName && <p className="text-xs text-red-500 mt-1">{errors.customerName}</p>}
               </div>
 
-              <div className="flex gap-3">
-                <div className="w-24 px-3 py-3 border-2 border-gray-300 rounded-xl text-sm text-center font-medium text-gray-600 bg-gray-50">+234</div>
-                <input value={customerPhone} onChange={e => { setCustomerPhone(e.target.value); if (!startedAt.current) startedAt.current = Date.now(); }}
-                  placeholder="Phone Number *" type="tel"
-                  className={`flex-1 px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm ${errors.customerPhone ? 'border-red-400' : 'border-gray-300'}`} />
+              <div>
+                <div className="flex gap-2">
+                  <div className="flex items-center gap-1 px-3 py-3 border-2 border-gray-300 rounded-xl text-sm font-medium text-gray-600 bg-gray-50 shrink-0">
+                    +234 <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </div>
+                  <input value={customerPhone} onChange={e => { setCustomerPhone(e.target.value); if (!startedAt.current) startedAt.current = Date.now(); }}
+                    placeholder="Your Phone Number *" type="tel"
+                    className={`flex-1 px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm ${errors.customerPhone ? 'border-red-400' : 'border-gray-300'}`} />
+                </div>
+                {errors.customerPhone && <p className="text-xs text-red-500 mt-1">{errors.customerPhone}</p>}
               </div>
-              {errors.customerPhone && <p className="text-xs text-red-500 -mt-3">{errors.customerPhone}</p>}
 
-              <div className="flex gap-3">
-                <div className="w-24 px-3 py-3 border-2 border-gray-300 rounded-xl text-sm text-center font-medium text-gray-600 bg-gray-50">+234</div>
+              <div className="flex gap-2">
+                <div className="flex items-center gap-1 px-3 py-3 border-2 border-gray-300 rounded-xl text-sm font-medium text-gray-600 bg-gray-50 shrink-0">
+                  +234 <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                </div>
                 <input value={customerPhone2} onChange={e => setCustomerPhone2(e.target.value)}
-                  placeholder="WhatsApp Number *" type="tel"
+                  placeholder="Whatsapp Number *" type="tel"
                   className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm" />
+              </div>
+
+              <input value={customerEmail} onChange={e => setCustomerEmail(e.target.value)}
+                placeholder="Your Email Address To Get Receipt (for your e-receipt)" type="email"
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm" />
+
+              <div>
+                <input value={address} onChange={e => setAddress(e.target.value)}
+                  placeholder="Your Full Address *"
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm ${errors.address ? 'border-red-400' : 'border-gray-300'}`} />
+                {errors.address && <p className="text-xs text-red-500 mt-1">{errors.address}</p>}
               </div>
 
               <div>
@@ -521,16 +534,10 @@ export default function PublicOrderForm() {
               </div>
 
               <div>
-                <input value={city} onChange={e => setCity(e.target.value)}
-                  placeholder="City / LGA (optional)"
+                <label className="block text-xs font-medium text-gray-600 mb-1">Your Age *</label>
+                <input value={age} onChange={e => setAge(e.target.value)}
+                  placeholder="Enter your age" type="number"
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm" />
-              </div>
-
-              <div>
-                <input value={address} onChange={e => setAddress(e.target.value)}
-                  placeholder="Your Full Delivery Address *"
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none focus:border-blue-500 transition text-sm ${errors.address ? 'border-red-400' : 'border-gray-300'}`} />
-                {errors.address && <p className="text-xs text-red-500 mt-1">{errors.address}</p>}
               </div>
             </div>
 
@@ -551,56 +558,72 @@ export default function PublicOrderForm() {
             ))}
 
             {/* ── Order Summary ───────────────────────────────────────────── */}
-            {mainProducts.some(fp => (selectedTiers[fp.productId] ?? 0) >= 0) && (
-              <div className="bg-blue-50 border-2 border-blue-200 rounded-2xl p-5 space-y-2 text-sm">
-                <h3 className="font-bold text-blue-900 text-base mb-3">Order Summary</h3>
-                {mainProducts.map(fp => {
-                  const tiers = fp.product?.pricingTiers ?? [];
-                  const tier = tiers[selectedTiers[fp.productId] ?? 0];
-                  const qty = quantities[fp.productId] ?? 1;
-                  if (!tier) return null;
-                  return (
-                    <div key={fp.productId} className="space-y-1">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Package:</span>
-                        <span className="font-semibold">{tier.label}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Price:</span>
-                        <span className="font-semibold">₦{Number(tier.price).toLocaleString()} × {qty}</span>
-                      </div>
-                      {selectedVariations[fp.productId] && (
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Variation:</span>
-                          <span className="font-semibold">{selectedVariations[fp.productId]}</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                {bumpProducts.filter(fp => bumps[fp.productId]?.accepted).map(fp => {
-                  const bump = bumps[fp.productId];
-                  const tiers = fp.product?.pricingTiers ?? [];
-                  const tier = tiers[bump?.tierIdx ?? 0];
-                  return (
-                    <div key={fp.productId} className="flex justify-between text-orange-700 border-t border-blue-200 pt-2">
-                      <span>Add-on: {fp.product?.name}</span>
-                      <span className="font-semibold">₦{Number(tier?.price ?? 0).toLocaleString()}</span>
-                    </div>
-                  );
-                })}
-                {state && deliveryFee >= 0 && (
-                  <div className="flex justify-between border-t border-blue-200 pt-2 text-gray-600">
-                    <span>Delivery ({state})</span>
-                    <span>{deliveryFee > 0 ? `₦${deliveryFee.toLocaleString()}` : 'Free'}</span>
-                  </div>
-                )}
-                <div className="flex justify-between border-t-2 border-blue-300 pt-2 text-base font-bold">
-                  <span className="text-blue-900">Total Amount:</span>
-                  <span className="text-blue-600">₦{(orderTotal + deliveryFee).toLocaleString()}</span>
-                </div>
+            <div className="bg-white border-2 border-gray-200 rounded-2xl p-5 text-sm space-y-2">
+              <div className="flex items-center gap-2 mb-3">
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <h3 className="font-bold text-gray-900 text-base">Order Summary</h3>
               </div>
-            )}
+
+              {mainProducts.map(fp => {
+                const tiers = fp.product?.pricingTiers ?? [];
+                const tier = tiers[selectedTiers[fp.productId] ?? 0];
+                const qty = quantities[fp.productId] ?? 1;
+                return (
+                  <div key={fp.productId} className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Main Package:</span>
+                      <span className="font-semibold text-gray-800 text-right max-w-[55%]">{tier ? `${tier.label}${qty > 1 ? ` ×${qty}` : ''}` : fp.product?.name}</span>
+                    </div>
+                    {tier && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Package Price:</span>
+                        <span className="font-semibold text-gray-800">₦{(Number(tier.price) * qty).toLocaleString()}</span>
+                      </div>
+                    )}
+                    {selectedVariations[fp.productId] && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Degree Selected:</span>
+                        <span className="font-semibold text-gray-800 text-right max-w-[55%]">{selectedVariations[fp.productId]}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {bumpProducts.filter(fp => bumps[fp.productId]?.accepted).map(fp => {
+                const bump = bumps[fp.productId];
+                const tiers = fp.product?.pricingTiers ?? [];
+                const tier = tiers[bump?.tierIdx ?? 0];
+                const cfg = form?.embedSettings?.bumps?.[fp.productId] ?? {};
+                const price = tiers.length > 0 ? Number(tier?.price ?? 0) : (cfg.bumpPrice ? Number(cfg.bumpPrice) : 0);
+                return (
+                  <div key={fp.productId} className="space-y-2 border-t border-gray-100 pt-2">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Upsell - {fp.product?.name}:</span>
+                      <span className="font-semibold text-gray-800 text-right max-w-[45%]">{tier?.label ?? 'Add-on'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Upsell Price:</span>
+                      <span className="font-semibold text-gray-800">₦{price.toLocaleString()}</span>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {state && deliveryFee > 0 && (
+                <div className="flex justify-between border-t border-gray-100 pt-2">
+                  <span className="text-gray-500">Delivery ({state}):</span>
+                  <span className="font-semibold text-gray-800">₦{deliveryFee.toLocaleString()}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between border-t-2 border-gray-200 pt-3 mt-1">
+                <span className="font-bold text-gray-900 text-base">Total Amount:</span>
+                <span className="font-bold text-blue-600 text-xl">₦{(orderTotal + deliveryFee).toLocaleString()}</span>
+              </div>
+            </div>
 
             {/* ── Submit ─────────────────────────────────────────────────── */}
             {errors.submit && (

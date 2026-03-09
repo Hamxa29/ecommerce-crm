@@ -93,7 +93,7 @@ function AddAccountModal({ onClose }) {
             <input value={form.instanceName} onChange={e => setForm(f => ({...f, instanceName: e.target.value}))}
               placeholder="e.g. Versacommerce"
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-            <p className="text-xs text-gray-400 mt-1">Must match an existing instance in Evolution API</p>
+            <p className="text-xs text-gray-400 mt-1">Enter a new name to create, or an existing Evolution API instance name to connect it</p>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Display Name</label>
