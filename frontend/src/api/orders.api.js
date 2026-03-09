@@ -11,4 +11,5 @@ export const ordersApi = {
   changeStatus:    (id, status, note, scheduledDate) => client.put(`/orders/${id}/status`, { status, note, scheduledDate }).then(r => r.data),
   bulk:            (orderIds, action, payload) => client.post('/orders/bulk', { orderIds, action, payload }).then(r => r.data),
   export:          (params) => client.get('/orders/export', { params, responseType: 'blob' }).then(r => r.data),
+  import:          (formData) => client.post('/orders/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data),
 };

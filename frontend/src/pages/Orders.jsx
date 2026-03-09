@@ -7,7 +7,7 @@ import { formatNGN, formatDate, downloadBlob } from '@/lib/utils';
 import OrderStatusBadge from '@/components/shared/OrderStatusBadge';
 import PhoneLink from '@/components/shared/PhoneLink';
 import EmptyState from '@/components/shared/EmptyState';
-import { Search, Filter, RefreshCw, ChevronDown, CheckSquare, Loader2, X, Plus, FileDown } from 'lucide-react';
+import { Search, Filter, RefreshCw, ChevronDown, CheckSquare, Loader2, X, Plus, FileDown, Upload } from 'lucide-react';
 
 function StateDropdown({ value, onChange }) {
   const [open, setOpen] = useState(false);
@@ -171,6 +171,8 @@ export default function Orders() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [page, setPage] = useState(1);
   const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const importRef = useRef(null);
 
   const params = { status: activeTab || undefined, search: search || undefined, state: stateFilter || undefined, page, limit: 50 };
 
@@ -211,6 +213,25 @@ export default function Orders() {
           <p className="text-sm text-gray-500">{total.toLocaleString()} total orders</p>
         </div>
         <div className="flex items-center gap-2">
+          <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setImporting(true);
+              try {
+                const fd = new FormData();
+                fd.append('file', file);
+                const res = await ordersApi.import(fd);
+                qc.invalidateQueries(['orders']);
+                alert(`Imported ${res.imported} orders. Skipped ${res.skipped} invalid rows.`);
+              } catch (err) {
+                alert(err.response?.data?.error ?? 'Import failed');
+              } finally { setImporting(false); e.target.value = ''; }
+            }} />
+          <button onClick={() => importRef.current?.click()} disabled={importing}
+            className="flex items-center gap-2 border bg-white text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-60">
+            {importing ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />} Import
+          </button>
           <button onClick={async () => {
             setExporting(true);
             try {
