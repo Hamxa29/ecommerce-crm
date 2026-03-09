@@ -53,7 +53,26 @@ function ConnectModal({ onClose, presetInstanceName = '' }) {
   });
 
   const qrBase64 = qrData?.qrcode?.base64 || qrData?.base64 || qrData?.qrcode;
-  const isAlreadyConnected = step === 'qr' && !qrBase64 && qrData && !qrError;
+  // Evolution API returns 404 (mapped to {status:'already_connected'}) when instance is already linked
+  const isAlreadyConnected = step === 'qr' && (
+    qrData?.status === 'already_connected' || (!qrBase64 && qrData && !qrError)
+  );
+
+  // When already connected, auto-refresh DB state and close
+  useEffect(() => {
+    if (!isAlreadyConnected) return;
+    (async () => {
+      try {
+        const accounts = await api.list();
+        const acc = accounts.find(a => a.instanceName === instanceName);
+        if (acc) {
+          await api.getState(acc.id);
+          qc.invalidateQueries(['wa-accounts']);
+        }
+      } catch { /* ignore */ }
+      setTimeout(() => setStep('done'), 1000);
+    })();
+  }, [isAlreadyConnected]);
 
   // Countdown timer
   useEffect(() => {
@@ -327,7 +346,19 @@ function ReconnectModal({ account, onClose }) {
     return () => { stopped = true; };
   }, [account.id]);
 
-  const isAlreadyConnected = !qrBase64 && data && !error;
+  const isAlreadyConnected = data?.status === 'already_connected' || (!qrBase64 && data && !error);
+
+  // Auto-refresh and close when already connected
+  useEffect(() => {
+    if (!isAlreadyConnected) return;
+    (async () => {
+      try {
+        await api.getState(account.id);
+        qc.invalidateQueries(['wa-accounts']);
+      } catch { /* ignore */ }
+      setTimeout(onClose, 1500);
+    })();
+  }, [isAlreadyConnected]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">

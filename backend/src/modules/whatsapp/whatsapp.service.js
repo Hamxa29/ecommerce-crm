@@ -10,7 +10,16 @@ export async function listAccounts() {
 }
 
 export async function getQRByName(instanceName) {
-  return getQRCode(instanceName);
+  try {
+    return await getQRCode(instanceName);
+  } catch (err) {
+    const status = err.response?.status ?? err.status;
+    if (status === 404) {
+      // Evolution API returns 404 when instance is already connected (no QR needed)
+      return { status: 'already_connected' };
+    }
+    throw err;
+  }
 }
 
 export async function createAccount(instanceName, displayName) {

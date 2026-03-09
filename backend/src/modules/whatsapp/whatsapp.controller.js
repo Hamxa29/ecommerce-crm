@@ -1,10 +1,12 @@
+import * as svc from './whatsapp.service.js';
+
+// ── Direct QR by instance name ────────────────────────────────────────────────
+
 export async function getQRDirect(req, res, next) {
   try {
     res.json(await svc.getQRByName(req.params.instanceName));
   } catch (e) { next(e); }
 }
-
-import * as svc from './whatsapp.service.js';
 
 // ── Accounts ─────────────────────────────────────────────────────────────────
 
