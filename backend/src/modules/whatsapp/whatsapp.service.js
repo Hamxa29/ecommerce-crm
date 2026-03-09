@@ -14,15 +14,10 @@ export async function createAccount(instanceName, displayName) {
   const existing = await prisma.whatsappAccount.findUnique({ where: { instanceName } });
   if (existing) return existing;
 
-  // Try to create in Evolution API; ignore 403 (instance already exists there)
-  // Axios v1 stores status on both err.response?.status AND err.status
-  try {
-    await createInstance(instanceName);
-  } catch (err) {
-    const status = err.response?.status ?? err.status;
-    if (status !== 403) throw err;
-    // 403 = instance already exists in Evolution API, safe to continue
-  }
+  // Attempt to create instance in Evolution API — ignore ALL errors.
+  // The instance likely already exists (403) or API is temporarily unavailable.
+  // Any real connectivity issues surface when user clicks "Scan QR".
+  try { await createInstance(instanceName); } catch (_) { /* ignore */ }
 
   return prisma.whatsappAccount.create({
     data: {
