@@ -9,6 +9,10 @@ export async function listAccounts() {
   return prisma.whatsappAccount.findMany({ orderBy: { createdAt: 'desc' } });
 }
 
+export async function getQRByName(instanceName) {
+  return getQRCode(instanceName);
+}
+
 export async function createAccount(instanceName, displayName) {
   // If already in our DB, just return it (idempotent)
   const existing = await prisma.whatsappAccount.findUnique({ where: { instanceName } });

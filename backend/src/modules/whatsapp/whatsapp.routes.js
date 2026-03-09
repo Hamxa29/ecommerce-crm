@@ -5,6 +5,9 @@ import * as ctrl from './whatsapp.controller.js';
 const router = Router();
 router.use(authenticate);
 
+// Direct QR by instance name (no DB lookup needed)
+router.get('/qr-direct/:instanceName', ctrl.getQRDirect);
+
 // Accounts
 router.get('/accounts',               ctrl.listAccounts);
 router.post('/accounts',              ctrl.createAccount);
