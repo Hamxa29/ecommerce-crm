@@ -11,6 +11,8 @@ const DEFAULT_BUMP_CONFIG = {
   ctaText: 'Yes, I Will Take It!',
   urgencyText: 'This offer is only available here — not available elsewhere',
   imageUrl: '',
+  bumpPrice: '',
+  regularPrice: '',
 };
 
 function EmbedModal({ formId, onClose }) {
@@ -104,6 +106,20 @@ function BumpConfigPanel({ productId, config, onChange }) {
             <input value={c.urgencyText} onChange={e => set('urgencyText', e.target.value)}
               placeholder="This offer is only available here — not available elsewhere"
               className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-0.5">Bump Price (NGN) *</label>
+              <input type="number" value={c.bumpPrice} onChange={e => set('bumpPrice', e.target.value)}
+                placeholder="e.g. 8000"
+                className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-0.5">Regular Price (NGN)</label>
+              <input type="number" value={c.regularPrice} onChange={e => set('regularPrice', e.target.value)}
+                placeholder="e.g. 13000 (optional)"
+                className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-yellow-300" />
+            </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-0.5">Image URL (optional)</label>

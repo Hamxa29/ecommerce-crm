@@ -146,6 +146,8 @@ function OrderBumpSection({ product, accepted, onToggle, selectedTierIdx, onSele
   const ctaText = cfg.ctaText || 'Yes, I Will Take It!';
   const urgencyText = cfg.urgencyText || 'This offer is only available here — not available elsewhere';
   const imageUrl = cfg.imageUrl || '';
+  const bumpPrice = cfg.bumpPrice ? Number(cfg.bumpPrice) : null;
+  const regularPrice = cfg.regularPrice ? Number(cfg.regularPrice) : null;
 
   return (
     <div className="border-4 border-dashed border-yellow-400 bg-yellow-50 rounded-2xl p-5 space-y-4">
@@ -157,6 +159,17 @@ function OrderBumpSection({ product, accepted, onToggle, selectedTierIdx, onSele
         )}
         <h3 className="text-xl font-bold text-gray-800">{product.name}</h3>
         {benefit && <p className="text-sm text-gray-600 mt-1">{benefit}</p>}
+        {bumpPrice && (
+          <p className="text-sm font-bold text-gray-800 mt-2">
+            Kindly click the box below to add this to your order now for just{' '}
+            <span className="text-green-600">₦{bumpPrice.toLocaleString()}</span>
+            {regularPrice && (
+              <> instead of paying normal price of{' '}
+                <span className="line-through text-gray-400">₦{regularPrice.toLocaleString()}</span>
+              </>
+            )}!
+          </p>
+        )}
       </div>
 
       {/* Toggle button */}
@@ -294,6 +307,8 @@ export default function PublicOrderForm() {
     const bump = bumps[productId];
     if (!bump?.accepted) return 0;
     const fp = form?.products?.find(p => p.productId === productId);
+    const cfg = form?.embedSettings?.bumps?.[productId] ?? {};
+    if (cfg.bumpPrice) return Number(cfg.bumpPrice);
     const tiers = fp?.product?.pricingTiers ?? [];
     return Number(tiers[bump.tierIdx ?? 0]?.price ?? 0);
   };
@@ -331,10 +346,13 @@ export default function PublicOrderForm() {
     for (const fp of bumpProducts) {
       const bump = bumps[fp.productId];
       if (!bump?.accepted) continue;
+      const cfg = form?.embedSettings?.bumps?.[fp.productId] ?? {};
+      const configPrice = cfg.bumpPrice ? Number(cfg.bumpPrice) : null;
       const tiers = fp.product?.pricingTiers ?? [];
       const tier = tiers[bump.tierIdx ?? 0];
+      const unitPrice = configPrice ?? Number(tier?.price ?? 0);
       items.push({ productId: fp.productId, variation: null, pricingTier: tier?.label ?? 'Bump',
-        quantity: 1, unitPrice: Number(tier?.price ?? 0) });
+        quantity: 1, unitPrice });
     }
 
     try {
