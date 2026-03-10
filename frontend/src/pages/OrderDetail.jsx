@@ -1,13 +1,16 @@
 import { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ordersApi } from '@/api/orders.api';
+import client from '@/api/client';
 import { ORDER_STATUSES } from '@/lib/constants';
 import { formatNGN, formatDate } from '@/lib/utils';
 import OrderStatusBadge from '@/components/shared/OrderStatusBadge';
 import PhoneLink from '@/components/shared/PhoneLink';
-import { ArrowLeft, Clock, MessageCircle, Loader2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Clock, MessageCircle, Loader2, Trash2, Truck } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
+
+const NEEDS_AGENT = ['DELIVERED', 'FAILED'];
 
 export default function OrderDetail() {
   const { id } = useParams();
@@ -17,15 +20,38 @@ export default function OrderDetail() {
   const [newStatus, setNewStatus] = useState('');
   const [note, setNote] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
+  const [deliveryAgentId, setDeliveryAgentId] = useState('');
 
   const { data: order, isLoading, error } = useQuery({
     queryKey: ['order', id],
     queryFn: () => ordersApi.get(id),
   });
 
+  const { data: agentsData } = useQuery({
+    queryKey: ['agents-list'],
+    queryFn: () => client.get('/agents', { params: { limit: 200 } }).then(r => r.data),
+  });
+  const agents = agentsData?.data ?? agentsData ?? [];
+
   const statusMutation = useMutation({
-    mutationFn: () => ordersApi.changeStatus(id, newStatus, note, scheduledDate || undefined),
-    onSuccess: () => { qc.invalidateQueries(['order', id]); qc.invalidateQueries(['orders']); setNewStatus(''); setNote(''); setScheduledDate(''); },
+    mutationFn: async () => {
+      if (deliveryAgentId && NEEDS_AGENT.includes(newStatus)) {
+        await ordersApi.update(id, { agentId: deliveryAgentId });
+      }
+      const agentName = agents.find(a => a.id === deliveryAgentId)?.name;
+      const fullNote = agentName
+        ? `Agent: ${agentName}${note ? '\n' + note : ''}`
+        : (note || undefined);
+      return ordersApi.changeStatus(id, newStatus, fullNote, scheduledDate || undefined);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries(['order', id]);
+      qc.invalidateQueries(['orders']);
+      setNewStatus('');
+      setNote('');
+      setScheduledDate('');
+      setDeliveryAgentId('');
+    },
   });
 
   const deleteMutation = useMutation({
@@ -181,10 +207,43 @@ export default function OrderDetail() {
                   className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
               </div>
             )}
+            {NEEDS_AGENT.includes(newStatus) && (
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1.5">
+                  <Truck size={12} />
+                  {newStatus === 'DELIVERED' ? 'Who delivered this order?' : 'Which agent attempted delivery?'}
+                  <span className="text-gray-400 font-normal">(required)</span>
+                </label>
+                {agents.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">No agents found</p>
+                ) : (
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto border rounded-xl p-2 bg-gray-50">
+                    {agents.map(agent => (
+                      <label key={agent.id} className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition ${deliveryAgentId === agent.id ? 'bg-primary/10 border border-primary/30' : 'hover:bg-white border border-transparent'}`}>
+                        <input type="radio" name="deliveryAgent" value={agent.id}
+                          checked={deliveryAgentId === agent.id}
+                          onChange={() => setDeliveryAgentId(agent.id)}
+                          className="accent-primary shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-800">{agent.name}</p>
+                          {agent.states?.length > 0 && (
+                            <p className="text-[10px] text-gray-400 truncate">{agent.states.join(', ')}</p>
+                          )}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Note (optional)" rows={2}
               className="w-full border rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary/30" />
             <button onClick={() => statusMutation.mutate()}
-              disabled={!newStatus || statusMutation.isPending || (newStatus === 'SCHEDULED' && !scheduledDate)}
+              disabled={
+                !newStatus || statusMutation.isPending ||
+                (newStatus === 'SCHEDULED' && !scheduledDate) ||
+                (NEEDS_AGENT.includes(newStatus) && !deliveryAgentId)
+              }
               className="w-full bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
               {statusMutation.isPending && <Loader2 size={14} className="animate-spin" />}
               Update Status

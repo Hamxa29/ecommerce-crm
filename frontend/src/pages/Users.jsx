@@ -24,7 +24,6 @@ function UserModal({ user, onClose }) {
   const [form, setForm] = useState({
     name: user?.name ?? '', email: user?.email ?? '', password: '',
     role: user?.role ?? 'STAFF', status: user?.status ?? true,
-    salary: user?.salary ?? '', bonus: user?.bonus ?? '', commission: user?.commission ?? '',
   });
   const [error, setError] = useState('');
 
@@ -39,9 +38,6 @@ function UserModal({ user, onClose }) {
     if (!isEdit && !form.password) return setError('Password is required');
     const payload = { ...form, permissions };
     if (!payload.password) delete payload.password;
-    if (payload.salary === '') payload.salary = null;
-    if (payload.bonus === '') payload.bonus = null;
-    if (payload.commission === '') payload.commission = null;
     mutation.mutate(payload);
   };
 
@@ -75,11 +71,6 @@ function UserModal({ user, onClose }) {
                 {USER_ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
             </div>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            {inp('salary', 'Salary (NGN)', 'number')}
-            {inp('bonus', 'Bonus (NGN)', 'number')}
-            {inp('commission', 'Commission (%)', 'number')}
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-2">Permissions</label>

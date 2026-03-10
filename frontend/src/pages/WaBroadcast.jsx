@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import client from '@/api/client';
 import { ORDER_STATUSES, NIGERIA_STATES } from '@/lib/constants';
 import { formatNGN, formatDate } from '@/lib/utils';
-import { Send, Search, Loader2, CheckSquare, Radio } from 'lucide-react';
+import { Send, Search, Loader2, Plus, ExternalLink } from 'lucide-react';
+
+const PLACEHOLDER_VARS = ['[customername]','[ordernumber]','[productname]','[productprice]','[customerphone]','[individual_state]','[formlink]'];
 
 const api = {
   listAccounts:  () => client.get('/whatsapp/accounts').then(r => r.data),
@@ -96,24 +99,55 @@ export default function WaBroadcast() {
 
         {!useCustom ? (
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Template</label>
-            <select value={templateId} onChange={e => setTemplateId(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-              <option value="">Select template...</option>
-              {templates.map(t => <option key={t.id} value={t.id}>{t.name} ({t.messageType})</option>)}
-            </select>
-            {templateId && (
-              <p className="text-xs text-gray-500 mt-1.5 bg-gray-50 p-2 rounded whitespace-pre-line">
-                {templates.find(t => t.id === templateId)?.content}
-              </p>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-medium text-gray-700">Select Template</label>
+              <Link to="/whatsapp/templates"
+                className="flex items-center gap-1 text-xs text-primary hover:underline">
+                <Plus size={11} /> Create Template <ExternalLink size={10} />
+              </Link>
+            </div>
+            {!accountId ? (
+              <p className="text-xs text-gray-400 italic">Select an account first to load templates</p>
+            ) : templates.length === 0 ? (
+              <div className="border border-dashed rounded-xl p-4 text-center">
+                <p className="text-sm text-gray-400">No templates yet for this account</p>
+                <Link to="/whatsapp/templates" className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                  <Plus size={11} /> Create your first template
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-56 overflow-y-auto">
+                {templates.map(t => (
+                  <button key={t.id} type="button" onClick={() => setTemplateId(t.id)}
+                    className={`w-full text-left border rounded-xl p-3 transition ${templateId === t.id ? 'border-primary bg-primary/5 ring-1 ring-primary/30' : 'hover:bg-gray-50'}`}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-gray-800">{t.name}</span>
+                      <span className="text-[10px] bg-gray-100 text-gray-500 rounded px-1.5 py-0.5">{t.messageType}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 line-clamp-2 whitespace-pre-line">{t.content}</p>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         ) : (
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Custom Message</label>
             <textarea value={customMessage} onChange={e => setCustomMessage(e.target.value)} rows={4}
-              placeholder="Type your message... Use [customername], [ordernumber], [productname] etc."
+              placeholder="Hi [customername]! Your order [ordernumber] is on its way..."
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none" />
+            <div className="mt-1.5">
+              <p className="text-[10px] text-gray-400 mb-1">Click to insert variable:</p>
+              <div className="flex flex-wrap gap-1">
+                {PLACEHOLDER_VARS.map(v => (
+                  <button key={v} type="button"
+                    onClick={() => setCustomMessage(m => m + v)}
+                    className="text-[10px] bg-gray-100 hover:bg-primary/10 hover:text-primary border border-gray-200 rounded px-1.5 py-0.5 font-mono transition">
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>

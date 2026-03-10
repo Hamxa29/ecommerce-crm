@@ -70,9 +70,21 @@ function RuleModal({ rule, accounts, onClose }) {
           {!form.templateId && (
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Custom Message</label>
-              <textarea value={form.customMessage} onChange={e => setForm(f => ({...f, customMessage: e.target.value}))} rows={3}
-                placeholder="Use [customername], [ordernumber], etc."
+              <textarea value={form.customMessage} onChange={e => setForm(f => ({...f, customMessage: e.target.value}))} rows={4}
+                placeholder="Hi [customername]! Your order [ordernumber] has been confirmed..."
                 className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none" />
+              <div className="mt-1.5">
+                <p className="text-[10px] text-gray-400 mb-1">Click to insert variable:</p>
+                <div className="flex flex-wrap gap-1">
+                  {['[customername]','[ordernumber]','[productname]','[productprice]','[customerphone]','[individual_state]','[formlink]'].map(v => (
+                    <button key={v} type="button"
+                      onClick={() => setForm(f => ({...f, customMessage: f.customMessage + v}))}
+                      className="text-[10px] bg-gray-100 hover:bg-primary/10 hover:text-primary border border-gray-200 rounded px-1.5 py-0.5 font-mono transition">
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
           <div>
@@ -83,7 +95,9 @@ function RuleModal({ rule, accounts, onClose }) {
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={form.enabled} onChange={e => setForm(f => ({...f, enabled: e.target.checked}))} />
-            <span className="text-sm text-gray-700">Rule enabled</span>
+            <span className="text-sm text-gray-700">
+              Active <span className="text-gray-400 font-normal text-xs">— uncheck to pause (stops sending without deleting the rule)</span>
+            </span>
           </label>
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <div className="flex gap-3 pt-1">
@@ -153,7 +167,7 @@ export default function WaAutomation() {
       ) : (
         <div className="space-y-3">
           {rules.map(rule => (
-            <div key={rule.id} className={`bg-white rounded-xl border p-5 ${!rule.enabled ? 'opacity-60' : ''}`}>
+            <div key={rule.id} className={`bg-white rounded-xl border p-5 ${!rule.enabled ? 'opacity-60 border-dashed' : ''}`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -167,7 +181,10 @@ export default function WaAutomation() {
                   <p className="text-xs text-gray-400 mt-1">
                     Account: {rule.account?.displayName ?? rule.accountId} ·{' '}
                     {rule.templateId ? 'Template' : 'Custom message'} ·{' '}
-                    Sent: {rule.sentCount ?? 0}
+                    Sent: {rule.sentCount ?? 0} ·{' '}
+                    <span className={rule.enabled ? 'text-green-600 font-medium' : 'text-orange-500 font-medium'}>
+                      {rule.enabled ? 'Active' : 'Paused'}
+                    </span>
                   </p>
                   {!rule.templateId && rule.customMessage && (
                     <p className="text-xs text-gray-500 mt-1 line-clamp-1">{rule.customMessage}</p>
