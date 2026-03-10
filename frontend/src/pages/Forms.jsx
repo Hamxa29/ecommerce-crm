@@ -254,6 +254,7 @@ function FormModal({ form, onClose }) {
     form?.products?.map(fp => ({ productId: fp.productId, isUpsell: fp.isUpsell })) ?? []
   );
   const [bumpConfigs, setBumpConfigs] = useState(savedSettings.bumps ?? {});
+  const [formType, setFormType] = useState(savedSettings.formType ?? 'order_form');
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('fields'); // 'fields' | 'products' | 'style'
 
@@ -314,7 +315,7 @@ function FormModal({ form, onClose }) {
       name: name.trim(),
       slug: slug.trim(),
       products: selectedProducts,
-      embedSettings: { header, subheader, submitText, fields, customFields, bumps: bumpConfigs },
+      embedSettings: { header, subheader, submitText, fields, customFields, bumps: bumpConfigs, formType },
     });
   };
 
@@ -351,6 +352,18 @@ function FormModal({ form, onClose }) {
                   placeholder="posture-form" />
               </div>
             </div>
+          </div>
+
+          {/* Form type */}
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-medium text-gray-700 shrink-0">Form Type:</span>
+            {[{ value: 'order_form', label: 'Order Form' }, { value: 'upsell_form', label: 'Upsell Form' }].map(opt => (
+              <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                <input type="radio" name="formType" value={opt.value} checked={formType === opt.value}
+                  onChange={() => setFormType(opt.value)} className="accent-primary" />
+                {opt.label}
+              </label>
+            ))}
           </div>
 
           {/* Tabs */}
@@ -542,11 +555,15 @@ export default function Forms() {
   const [showModal, setShowModal] = useState(false);
   const [editForm, setEditForm] = useState(null);
   const [embedFormId, setEmbedFormId] = useState(null);
+  const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'order_form' | 'upsell_form'
 
   const { data = [], isLoading } = useQuery({
     queryKey: ['forms'],
     queryFn: formsApi.list,
   });
+
+  const filtered = typeFilter === 'all' ? data
+    : data.filter(f => (f.embedSettings?.formType ?? 'order_form') === typeFilter);
 
   const deleteMutation = useMutation({
     mutationFn: (id) => formsApi.remove(id),
@@ -567,8 +584,8 @@ export default function Forms() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Order Forms</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Embeddable order forms for your website</p>
+          <h1 className="text-xl font-semibold text-gray-900">Forms</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Embeddable order &amp; upsell forms for your website</p>
         </div>
         <button onClick={() => setShowModal(true)}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary/90">
@@ -576,13 +593,23 @@ export default function Forms() {
         </button>
       </div>
 
+      {/* Type filter tabs */}
+      <div className="flex gap-2">
+        {[{ value: 'all', label: 'All Forms' }, { value: 'order_form', label: 'Order Forms' }, { value: 'upsell_form', label: 'Upsell Forms' }].map(t => (
+          <button key={t.value} onClick={() => setTypeFilter(t.value)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium border transition ${typeFilter === t.value ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       {isLoading ? (
         <div className="py-20 text-center text-gray-400">Loading...</div>
-      ) : data.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="bg-white border rounded-xl py-20 text-center">
           <FileText size={32} className="mx-auto text-gray-300 mb-3" />
           <p className="text-gray-500 font-medium">No forms yet</p>
-          <p className="text-sm text-gray-400 mt-1">Create your first order form to start accepting orders online</p>
+          <p className="text-sm text-gray-400 mt-1">Create your first form to start accepting orders online</p>
           <button onClick={() => setShowModal(true)}
             className="mt-4 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary/90">
             Create Form
@@ -590,12 +617,15 @@ export default function Forms() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {data.map(form => (
+          {filtered.map(form => (
             <div key={form.id} className="bg-white border rounded-xl p-5 space-y-4">
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="font-semibold text-gray-900">{form.name}</h3>
                   <p className="text-xs text-gray-400 mt-0.5">/form/{form.slug}</p>
+                  <span className={`inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full font-medium ${(form.embedSettings?.formType ?? 'order_form') === 'upsell_form' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'}`}>
+                    {(form.embedSettings?.formType ?? 'order_form') === 'upsell_form' ? 'Upsell Form' : 'Order Form'}
+                  </span>
                 </div>
                 <button onClick={() => toggleMutation.mutate({ id: form.id, status: !form.status })}
                   className={`text-lg ${form.status ? 'text-green-500' : 'text-gray-300'}`}>

@@ -198,6 +198,9 @@ export default function OrderDetail() {
             <div className="flex justify-between"><span className="text-gray-500">Payment</span><span className="capitalize">{order.paymentStatus?.toLowerCase()}</span></div>
             <div className="flex justify-between"><span className="text-gray-500">Agent</span><span>{order.agent?.name ?? '—'}</span></div>
             <div className="flex justify-between"><span className="text-gray-500">Staff</span><span>{order.assignedStaff?.name ?? '—'}</span></div>
+            {order.scheduledDate && (
+              <div className="flex justify-between"><span className="text-gray-500">Scheduled For</span><span className="font-medium text-blue-700">{formatDate(order.scheduledDate)}</span></div>
+            )}
             {order.notes && <div><span className="text-gray-500 block">Notes</span><p className="mt-0.5 text-gray-700">{order.notes}</p></div>}
             {order.comment && <div><span className="text-gray-500 block">Comment</span><p className="mt-0.5 text-gray-700">{order.comment}</p></div>}
           </div>

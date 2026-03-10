@@ -189,7 +189,7 @@ export async function bulkAction(orderIds, action, payload, actorId) {
     try {
       switch (action) {
         case 'status':
-          await changeOrderStatus(id, payload.status, actorId, payload.note);
+          await changeOrderStatus(id, payload.status, actorId, payload.note, payload.scheduledDate);
           break;
         case 'assign_agent':
           await prisma.order.update({ where: { id }, data: { agentId: payload.agentId } });

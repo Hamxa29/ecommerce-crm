@@ -523,17 +523,6 @@ export default function PublicOrderForm() {
                     </div>
                   )}
 
-                  {/* Quantity */}
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm font-medium text-gray-700">Quantity:</span>
-                    <div className="flex items-center gap-3 bg-white border rounded-lg px-2">
-                      <button type="button" onClick={() => setQuantities(p => ({ ...p, [fp.productId]: Math.max(1, (p[fp.productId] ?? 1) - 1) }))}
-                        className="w-8 h-8 text-xl font-bold text-gray-600 hover:text-gray-900">−</button>
-                      <span className="w-6 text-center font-bold">{quantities[fp.productId] ?? 1}</span>
-                      <button type="button" onClick={() => setQuantities(p => ({ ...p, [fp.productId]: (p[fp.productId] ?? 1) + 1 }))}
-                        className="w-8 h-8 text-xl font-bold text-gray-600 hover:text-gray-900">+</button>
-                    </div>
-                  </div>
                 </div>
               );
             })}

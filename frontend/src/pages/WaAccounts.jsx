@@ -377,10 +377,17 @@ export default function WaAccounts() {
     refetchInterval: 30000,
   });
 
-  const refreshMutation = useMutation({
-    mutationFn: api.getState,
-    onSuccess: () => qc.invalidateQueries(['wa-accounts']),
-  });
+  const [refreshingIds, setRefreshingIds] = useState(new Set());
+
+  const refreshAccount = async (id) => {
+    setRefreshingIds(prev => new Set(prev).add(id));
+    try {
+      await api.getState(id);
+      qc.invalidateQueries(['wa-accounts']);
+    } finally {
+      setRefreshingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
+    }
+  };
 
   const deleteMutation = useMutation({
     mutationFn: api.delete,
@@ -468,12 +475,12 @@ export default function WaAccounts() {
                   {acc.status === 'CONNECTED' ? 'Re-link QR' : 'Scan QR'}
                 </button>
                 <button
-                  onClick={() => refreshMutation.mutate(acc.id)}
-                  disabled={refreshMutation.isPending}
+                  onClick={() => refreshAccount(acc.id)}
+                  disabled={refreshingIds.has(acc.id)}
                   title="Refresh status"
                   className="flex items-center justify-center border rounded-lg py-2 px-3 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-40"
                 >
-                  <RefreshCw size={13} className={refreshMutation.isPending ? 'animate-spin' : ''} />
+                  <RefreshCw size={13} className={refreshingIds.has(acc.id) ? 'animate-spin' : ''} />
                 </button>
                 <button
                   onClick={() => { if (confirm(`Delete "${acc.displayName || acc.instanceName}"?`)) deleteMutation.mutate(acc.id); }}

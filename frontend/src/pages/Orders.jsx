@@ -172,6 +172,8 @@ export default function Orders() {
   const [page, setPage] = useState(1);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [scheduleModal, setScheduleModal] = useState(false);
+  const [scheduledDate, setScheduledDate] = useState('');
   const importRef = useRef(null);
 
   const params = { status: activeTab || undefined, search: search || undefined, state: stateFilter || undefined, page, limit: 50 };
@@ -195,10 +197,15 @@ export default function Orders() {
 
   const toggleAll = () => setSelectedIds(selectedIds.length === orders.length ? [] : orders.map(o => o.id));
 
-  const executeBulk = () => {
+  const executeBulk = (overrideScheduledDate) => {
     if (!bulkAction || selectedIds.length === 0) return;
+    if (bulkAction === 'status:SCHEDULED' && !overrideScheduledDate) {
+      setScheduleModal(true);
+      return;
+    }
     if (bulkAction.startsWith('status:')) {
-      bulkMutation.mutate({ action: 'status', payload: { status: bulkAction.split(':')[1] } });
+      const status = bulkAction.split(':')[1];
+      bulkMutation.mutate({ action: 'status', payload: { status, scheduledDate: overrideScheduledDate || undefined } });
     } else {
       bulkMutation.mutate({ action: bulkAction, payload: {} });
     }
@@ -270,8 +277,8 @@ export default function Orders() {
             className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
         </div>
         <StateDropdown value={stateFilter} onChange={v => { setStateFilter(v); setPage(1); }} />
-        <button onClick={() => refetch()} className="p-2 border rounded-lg hover:bg-gray-50 text-gray-500">
-          <RefreshCw size={15} />
+        <button onClick={() => refetch()} disabled={isLoading} className="p-2 border rounded-lg hover:bg-gray-50 text-gray-500 disabled:opacity-50">
+          <RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} />
         </button>
       </div>
 
@@ -360,6 +367,27 @@ export default function Orders() {
       </div>
 
       {showAddModal && <AddOrderModal onClose={() => setShowAddModal(false)} />}
+
+      {scheduleModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <h3 className="font-semibold text-gray-900">Set Scheduled Delivery Date</h3>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Date & Time *</label>
+              <input type="datetime-local" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => { setScheduleModal(false); setScheduledDate(''); }}
+                className="flex-1 border rounded-lg py-2 text-sm hover:bg-gray-50">Cancel</button>
+              <button disabled={!scheduledDate} onClick={() => { setScheduleModal(false); executeBulk(scheduledDate); setScheduledDate(''); }}
+                className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium disabled:opacity-60">
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

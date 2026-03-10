@@ -235,7 +235,7 @@ export async function triggerAutomationForOrder(order, newStatus) {
   });
 
   for (const rule of rules) {
-    if (rule.delayMinutes === 0) {
+    const execute = async () => {
       try {
         await sendBroadcast({
           accountId: rule.accountId,
@@ -244,10 +244,20 @@ export async function triggerAutomationForOrder(order, newStatus) {
           customMessage: rule.customMessage,
           mediaUrl: rule.mediaUrl,
         });
+        await prisma.whatsappAutomation.update({
+          where: { id: rule.id },
+          data: { sentCount: { increment: 1 } },
+        });
       } catch (err) {
         console.error('[Automation] Failed to send:', err.message);
       }
+    };
+
+    if (rule.delayMinutes === 0) {
+      await execute();
+    } else {
+      setTimeout(execute, rule.delayMinutes * 60 * 1000);
+      console.log(`[Automation] Rule ${rule.id} scheduled in ${rule.delayMinutes} min for order ${order.orderNumber}`);
     }
-    // Delayed sends handled by job runner (future)
   }
 }

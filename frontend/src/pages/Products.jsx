@@ -67,13 +67,16 @@ function ProductModal({ product, onClose }) {
                 className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Cost Price (NGN) *</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Cost Price (NGN) *
+                <span className="block text-[10px] text-gray-400 font-normal">Amount you paid — not selling price</span>
+              </label>
               <input type="number" value={form.costPrice} onChange={e => setForm(f => ({ ...f, costPrice: e.target.value }))}
                 className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Stock</label>
-              <input type="number" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: parseInt(e.target.value) || 0 }))}
+              <input type="number" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: e.target.value }))}
                 className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
             </div>
           </div>
@@ -119,7 +122,7 @@ function ProductModal({ product, onClose }) {
                   onChange={e => setPricingTiers(ts => ts.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
                   className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30" />
                 <input type="number" placeholder="Qty" value={t.quantity}
-                  onChange={e => setPricingTiers(ts => ts.map((x, j) => j === i ? { ...x, quantity: parseInt(e.target.value) || 1 } : x))}
+                  onChange={e => setPricingTiers(ts => ts.map((x, j) => j === i ? { ...x, quantity: e.target.value } : x))}
                   className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/30" />
                 <div className="flex gap-1">
                   <input type="number" placeholder="Price (NGN)" value={t.price}

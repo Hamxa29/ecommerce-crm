@@ -21,6 +21,7 @@ export function applyTemplate(template, data = {}) {
     '[customername_state]': data.customerName && data.state
       ? `${data.customerName} from ${data.state}`
       : (data.customerName ?? ''),
+    '[formlink]': data.formlink ?? '',
   };
 
   return Object.entries(vars).reduce(

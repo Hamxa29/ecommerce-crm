@@ -17,6 +17,7 @@ export function startCartAbandonmentJob() {
           createdAt: { lte: threeMinutesAgo },
           customerPhone: { not: '' },
         },
+        include: { form: { select: { slug: true } } },
       });
 
       if (carts.length === 0) return;
@@ -46,6 +47,9 @@ export function startCartAbandonmentJob() {
             continue;
           }
 
+          const siteUrl = process.env.SITE_URL ?? 'https://crm.hulliz.com';
+          const formLink = cart.form?.slug ? `${siteUrl}/form/${cart.form.slug}` : '';
+
           const msg = template
             ? applyTemplate(template.content, {
                 customerName: cart.customerName,
@@ -57,8 +61,9 @@ export function startCartAbandonmentJob() {
                 brandName: '',
                 brandPhone: '',
                 assignedStaffName: '',
+                formlink: formLink,
               })
-            : `Hi ${cart.customerName}! 👋 You left something in your cart.\n\nYou were about to order *${cart.productData?.productName ?? 'a product'}*.\n\nComplete your order now before it's gone! 🛒`;
+            : `Hi ${cart.customerName}! 👋 You left something in your cart.\n\nYou were about to order *${cart.productData?.productName ?? 'a product'}*.\n\nComplete your order now before it's gone! 🛒${formLink ? `\n\n👉 ${formLink}` : ''}`;
 
           await sendText(account.instanceName, phone, msg);
 
