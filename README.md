@@ -17,7 +17,7 @@ cp .env.example .env
 
 npm install
 npx prisma migrate dev --name init
-npm run seed          # Creates admin@crm.local / Admin@1234
+npm run seed          # Creates the initial admin account
 
 npm run dev           # Starts on http://localhost:3001
 ```
@@ -31,8 +31,8 @@ npm run dev           # Starts on http://localhost:5173
 
 ### First Login
 - URL: http://localhost:5173
-- Email: admin@crm.local
-- Password: Admin@1234
+- Email: *(set in `backend/src/scripts/seedAdmin.js` before running seed)*
+- Password: *(set in `backend/src/scripts/seedAdmin.js` before running seed)*
 
 **Change your password after first login!**
 
