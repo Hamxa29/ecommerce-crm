@@ -22,6 +22,8 @@ export default function OrderDetail() {
   const [scheduledDate, setScheduledDate] = useState('');
   const [deliveryAgentId, setDeliveryAgentId] = useState('');
   const [reminder, setReminder] = useState({ enabled: false, offset: 1440 });
+  const [remitModal, setRemitModal] = useState(false);
+  const [remitFeeInput, setRemitFeeInput] = useState('');
 
   const { data: order, isLoading, error } = useQuery({
     queryKey: ['order', id],
@@ -41,7 +43,10 @@ export default function OrderDetail() {
   });
 
   const remitMutation = useMutation({
-    mutationFn: () => ordersApi.update(id, { paymentStatus: 'REMITTED' }),
+    mutationFn: (agentFee) => ordersApi.update(id, {
+      paymentStatus: 'REMITTED',
+      ...(agentFee != null ? { deliveryFee: agentFee } : {}),
+    }),
     onSuccess: () => {
       qc.invalidateQueries(['order', id]);
       qc.invalidateQueries(['orders']);
@@ -420,7 +425,7 @@ export default function OrderDetail() {
                   </div>
                 </div>
                 <button
-                  onClick={() => { if (window.confirm(`Confirm remittance of ${formatNGN(net)} to the store?`)) remitMutation.mutate(); }}
+                  onClick={() => { setRemitFeeInput(String(order.deliveryFee ?? '')); setRemitModal(true); }}
                   disabled={remitMutation.isPending}
                   className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-medium py-2 rounded-lg transition"
                 >
@@ -504,5 +509,68 @@ export default function OrderDetail() {
         </div>
       </div>
     </div>
+
+    {/* Cash Remittance Modal */}
+    {remitModal && (() => {
+      const total = Number(order?.totalAmount ?? 0);
+      const fee   = parseFloat(remitFeeInput) || 0;
+      const net   = total - fee;
+      return (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+              <Banknote size={16} className="text-amber-600" /> Confirm Cash Remittance
+            </h3>
+
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs text-gray-500 font-medium mb-1">Total collected from customer</p>
+                <p className="text-lg font-bold text-gray-900">{formatNGN(total)}</p>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 font-medium block mb-1">
+                  Delivery agent charge (₦)
+                </label>
+                <input
+                  type="number"
+                  value={remitFeeInput}
+                  onChange={e => setRemitFeeInput(e.target.value)}
+                  placeholder="Enter amount agent charged"
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  autoFocus
+                />
+              </div>
+              <div className="bg-gray-50 border rounded-lg p-3 space-y-2 text-sm">
+                <div className="flex justify-between text-gray-600">
+                  <span>Collected from customer</span><span className="font-medium">{formatNGN(total)}</span>
+                </div>
+                <div className="flex justify-between text-red-600">
+                  <span>Agent delivery charge</span><span>– {formatNGN(fee)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-green-700 border-t pt-2">
+                  <span>Net remitted to store</span><span>{formatNGN(net)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setRemitModal(false)}
+                className="flex-1 border rounded-lg py-2 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { remitMutation.mutate(fee); setRemitModal(false); }}
+                disabled={remitMutation.isPending}
+                className="flex-1 bg-green-600 text-white rounded-lg py-2 text-sm font-semibold hover:bg-green-700 disabled:opacity-60"
+              >
+                Confirm Remittance
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
   );
 }
