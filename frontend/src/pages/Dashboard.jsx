@@ -178,52 +178,50 @@ function OverviewTab({ stats, isLoading, selectedLabel }) {
 function ExportsTab({ period, selectedLabel, stats }) {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState(null);
-  const [exportingAnalytics, setExportingAnalytics] = useState(false);
+  const [exportingProducts, setExportingProducts] = useState(false);
+  const [exportingStates, setExportingStates] = useState(false);
 
-  const handleExportAnalytics = () => {
+  const downloadCsv = (rows, filename) => {
+    const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportProducts = () => {
     if (!stats) return;
-    setExportingAnalytics(true);
+    setExportingProducts(true);
     try {
-      const rows = [];
       const fmt = (n) => Number(n ?? 0).toLocaleString('en-NG');
-      const w = stats.thisWeek;
-
-      rows.push(['ANALYTICS REPORT', selectedLabel]);
-      rows.push([]);
-      rows.push(['KEY METRICS']);
-      rows.push(['Metric', 'Value']);
-      rows.push(['Total Orders', w.count]);
-      rows.push(['Total Revenue (NGN)', fmt(w.totalAmount)]);
-      rows.push(['Delivered Orders', w.delivered]);
-      rows.push(['Delivered Revenue (NGN)', fmt(w.deliveredAmount)]);
-      rows.push(['Delivery Rate (%)', w.deliveryRate]);
-      rows.push(['Pending Orders', w.pending]);
-      rows.push(['Awaiting Orders', w.awaiting]);
-      rows.push(['Scheduled Orders', w.scheduled]);
-      rows.push(['Cancelled / Failed Revenue (NGN)', fmt(w.cancelledAmount)]);
-      rows.push([]);
-      rows.push(['TOP PRODUCTS']);
-      rows.push(['Product', 'Units Sold', 'Revenue (NGN)']);
-      (stats.topProducts ?? []).forEach(p => rows.push([p.name, p.count, fmt(p.revenue)]));
-      rows.push([]);
-      rows.push(['TOP STATES']);
-      rows.push(['State', 'Orders']);
-      (stats.topStates ?? []).forEach(s => rows.push([s.state, s.count]));
-      rows.push([]);
-      rows.push(['TOP CUSTOMERS']);
-      rows.push(['Customer', 'Phone', 'Orders', 'Total Spend (NGN)']);
-      (stats.topCustomers ?? []).forEach(c => rows.push([c.name, c.phone, c.count, fmt(c.total)]));
-
-      const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `analytics-report-${period}-${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const rows = [
+        ['TOP PRODUCTS', selectedLabel],
+        [],
+        ['Product', 'Units Sold', 'Revenue (NGN)'],
+        ...(stats.topProducts ?? []).map(p => [p.name, p.count, fmt(p.revenue)]),
+      ];
+      downloadCsv(rows, `top-products-${period}-${new Date().toISOString().slice(0, 10)}.csv`);
     } finally {
-      setExportingAnalytics(false);
+      setExportingProducts(false);
+    }
+  };
+
+  const handleExportStates = () => {
+    if (!stats) return;
+    setExportingStates(true);
+    try {
+      const rows = [
+        ['TOP STATES', selectedLabel],
+        [],
+        ['State', 'Orders'],
+        ...(stats.topStates ?? []).map(s => [s.state, s.count]),
+      ];
+      downloadCsv(rows, `top-states-${period}-${new Date().toISOString().slice(0, 10)}.csv`);
+    } finally {
+      setExportingStates(false);
     }
   };
 
@@ -278,25 +276,46 @@ function ExportsTab({ period, selectedLabel, stats }) {
           </button>
         </Panel>
       ))}
-      {/* Analytics Report export */}
-      <Panel className="md:col-span-2">
+      {/* Top Products export */}
+      <Panel>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h4 className="font-semibold text-gray-800 mb-1">Analytics Report</h4>
-            <p className="text-sm text-gray-500">Key metrics, top products, top states & top customers for the period</p>
+            <h4 className="font-semibold text-gray-800 mb-1">Top Products</h4>
+            <p className="text-sm text-gray-500">Best-selling products by units sold and revenue</p>
             <p className="text-xs text-gray-400 mt-1">Period: {selectedLabel} · Downloads as CSV</p>
           </div>
-          <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
-            <BarChart2 size={18} className="text-green-600" />
+          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+            <Trophy size={18} className="text-primary" />
           </div>
         </div>
         <button
-          onClick={handleExportAnalytics}
-          disabled={exportingAnalytics || !stats}
-          className="mt-4 w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-semibold py-2.5 rounded-xl transition"
+          onClick={handleExportProducts}
+          disabled={exportingProducts || !stats}
+          className="mt-4 w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-60 text-white text-sm font-semibold py-2.5 rounded-xl transition"
         >
-          {exportingAnalytics ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-          Export Analytics CSV
+          {exportingProducts ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+          Export to CSV
+        </button>
+      </Panel>
+      {/* Top States export */}
+      <Panel>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h4 className="font-semibold text-gray-800 mb-1">Top States</h4>
+            <p className="text-sm text-gray-500">States with the highest number of orders</p>
+            <p className="text-xs text-gray-400 mt-1">Period: {selectedLabel} · Downloads as CSV</p>
+          </div>
+          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+            <MapPin size={18} className="text-primary" />
+          </div>
+        </div>
+        <button
+          onClick={handleExportStates}
+          disabled={exportingStates || !stats}
+          className="mt-4 w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-60 text-white text-sm font-semibold py-2.5 rounded-xl transition"
+        >
+          {exportingStates ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+          Export to CSV
         </button>
       </Panel>
 

@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, Package, FileText, Truck,
   CalendarCheck, ShoppingCart, MessageCircle,
   Phone, ScrollText, Radio, Zap, Settings, LogOut,
-  ChevronLeft, ChevronRight, ClipboardList, Bot,
+  ChevronLeft, ChevronRight, ClipboardList, Bot, Plug,
 } from 'lucide-react';
 
 // ADMIN always sees everything.
@@ -59,7 +59,8 @@ const NAV_SECTIONS = [
   {
     label: 'System',
     items: [
-      { to: '/settings', icon: Settings, label: 'Settings', roles: ['ADMIN'] },
+      { to: '/integrations', icon: Plug,     label: 'Integrations', roles: ['ADMIN'] },
+      { to: '/settings',     icon: Settings, label: 'Settings',     roles: ['ADMIN'] },
     ],
   },
 ];

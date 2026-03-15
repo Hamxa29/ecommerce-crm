@@ -18,6 +18,7 @@ const ROUTE_TITLES = {
   '/whatsapp/templates': 'WhatsApp Templates',
   '/whatsapp/broadcast': 'WhatsApp Broadcast',
   '/whatsapp/automation': 'WhatsApp Automation',
+  '/integrations': 'Integrations',
   '/settings': 'Settings',
 };
 

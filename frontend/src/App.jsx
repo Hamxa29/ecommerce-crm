@@ -5,10 +5,14 @@ import AppLayout from './components/layout/AppLayout';
 import { useAuthStore } from './stores/authStore';
 import client from './api/client';
 
-function RoleRoute({ roles, children }) {
+// roles: strict role check (e.g. ADMIN only)
+// perms: any of these permission keys grants access (ADMIN always passes)
+function RoleRoute({ roles, perms, children }) {
   const user = useAuthStore((s) => s.user);
   if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'ADMIN') return children;
   if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />;
+  if (perms && !perms.some(p => user?.permissions?.[p])) return <Navigate to="/" replace />;
   return children;
 }
 import Login from './pages/Login';
@@ -29,6 +33,7 @@ import Settings from './pages/Settings';
 import PublicOrderForm from './pages/PublicOrderForm';
 import PublicPaymentPage from './pages/PublicPaymentPage';
 import WaChatbot from './pages/WaChatbot';
+import Integrations from './pages/Integrations';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,21 +71,22 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/orders" element={<Orders />} />
             <Route path="/orders/:id" element={<OrderDetail />} />
-            <Route path="/users" element={<RoleRoute roles={['ADMIN','SUPERVISOR']}><Users /></RoleRoute>} />
+            <Route path="/users" element={<RoleRoute perms={['userManagement']}><Users /></RoleRoute>} />
             <Route path="/product-categories" element={<Navigate to="/products" replace />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/forms" element={<Forms />} />
-            <Route path="/agents" element={<Agents />} />
-            <Route path="/today" element={<TodaySchedule />} />
+            <Route path="/products" element={<RoleRoute perms={['products']}><Products /></RoleRoute>} />
+            <Route path="/forms" element={<RoleRoute perms={['orderForms','orders']}><Forms /></RoleRoute>} />
+            <Route path="/agents" element={<RoleRoute perms={['agents']}><Agents /></RoleRoute>} />
+            <Route path="/today" element={<RoleRoute perms={['orders']}><TodaySchedule /></RoleRoute>} />
             {/* Keep old routes as redirects */}
             <Route path="/deliveries-today" element={<Navigate to="/today" replace />} />
             <Route path="/followups-today" element={<Navigate to="/today" replace />} />
-            <Route path="/abandoned-carts" element={<RoleRoute roles={['ADMIN','SUPERVISOR']}><AbandonedCarts /></RoleRoute>} />
-            <Route path="/whatsapp/accounts" element={<RoleRoute roles={['ADMIN','SUPERVISOR']}><WaAccounts /></RoleRoute>} />
-            <Route path="/whatsapp/templates" element={<WaTemplates />} />
-            <Route path="/whatsapp/broadcast" element={<RoleRoute roles={['ADMIN','SUPERVISOR','STAFF']}><WaBroadcast /></RoleRoute>} />
-            <Route path="/whatsapp/automation" element={<RoleRoute roles={['ADMIN','SUPERVISOR']}><WaAutomation /></RoleRoute>} />
-            <Route path="/whatsapp/chatbot"    element={<RoleRoute roles={['ADMIN','SUPERVISOR']}><WaChatbot /></RoleRoute>} />
+            <Route path="/abandoned-carts" element={<RoleRoute perms={['abandonedCarts']}><AbandonedCarts /></RoleRoute>} />
+            <Route path="/whatsapp/accounts" element={<RoleRoute perms={['whatsappAdmin']}><WaAccounts /></RoleRoute>} />
+            <Route path="/whatsapp/templates" element={<RoleRoute perms={['whatsapp','whatsappAdmin']}><WaTemplates /></RoleRoute>} />
+            <Route path="/whatsapp/broadcast" element={<RoleRoute perms={['whatsapp','whatsappAdmin']}><WaBroadcast /></RoleRoute>} />
+            <Route path="/whatsapp/automation" element={<RoleRoute perms={['whatsappAdmin']}><WaAutomation /></RoleRoute>} />
+            <Route path="/whatsapp/chatbot"    element={<RoleRoute perms={['whatsappAdmin']}><WaChatbot /></RoleRoute>} />
+            <Route path="/integrations" element={<RoleRoute roles={['ADMIN']}><Integrations /></RoleRoute>} />
             <Route path="/settings" element={<RoleRoute roles={['ADMIN']}><Settings /></RoleRoute>} />
           </Route>
 

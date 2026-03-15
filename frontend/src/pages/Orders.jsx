@@ -234,6 +234,14 @@ export default function Orders() {
       return;
     }
     if ((bulkAction === 'status:DELIVERED' || bulkAction === 'status:FAILED') && overrideAgentId === undefined) {
+      const selectedOrders = orders.filter(o => selectedIds.includes(o.id));
+      const selectedStates = [...new Set(selectedOrders.map(o => o.state).filter(Boolean))];
+      const stateAgents = agents.filter(a => !a.states?.length || selectedStates.some(s => a.states.includes(s)));
+      // Auto-assign if exactly one agent covers the selected states — skip modal
+      if (stateAgents.length === 1) {
+        executeBulk(undefined, stateAgents[0].id);
+        return;
+      }
       setDeliveredModal(true);
       return;
     }
