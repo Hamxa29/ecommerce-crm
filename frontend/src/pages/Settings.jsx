@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { usersApi } from '@/api/users.api';
 import { NIGERIA_STATES } from '@/lib/constants';
 import client from '@/api/client';
-import { User, Lock, Server, Store, Bell, CheckCircle, History, ChevronDown, X, Search, Send } from 'lucide-react';
+import { User, Lock, Server, Store, Bell, CheckCircle, History, ChevronDown, X, Search, Send, Zap } from 'lucide-react';
 
 function SettingsStateDropdown({ value, onChange, placeholder = 'Select state' }) {
   const [open, setOpen] = useState(false);
@@ -339,6 +339,207 @@ function PendingOrderSection() {
   );
 }
 
+// ── Integrations Section ──────────────────────────────────────────────────────
+function IntegrationsSection() {
+  const qc = useQueryClient();
+  const { data: stored, isLoading } = useQuery({ queryKey: ['store-settings'], queryFn: settingsApi.get });
+  const [form, setForm] = useState(null);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
+  const [showSecretKey, setShowSecretKey] = useState(false);
+  const [showWebhookSecret, setShowWebhookSecret] = useState(false);
+
+  const { data: waAccounts = [] } = useQuery({
+    queryKey: ['whatsapp-accounts'],
+    queryFn: () => client.get('/whatsapp/accounts').then(r => r.data),
+  });
+
+  const values = form ?? stored ?? {};
+  const set = (key, val) => setForm(prev => ({ ...(prev ?? stored ?? {}), [key]: val }));
+
+  const mutation = useMutation({
+    mutationFn: settingsApi.update,
+    onSuccess: () => {
+      qc.invalidateQueries(['store-settings']);
+      setSaved(true); setForm(null); setError('');
+      setTimeout(() => setSaved(false), 2500);
+    },
+    onError: (e) => setError(e.response?.data?.error ?? 'Failed to save'),
+  });
+
+  if (isLoading) return null;
+
+  const PAYMENT_PROVIDERS = [
+    { value: '',            label: 'None (COD only)' },
+    { value: 'paystack',    label: 'Paystack' },
+    { value: 'opay',        label: 'OPay' },
+    { value: 'flutterwave', label: 'Flutterwave' },
+    { value: 'mock',        label: 'Mock (for testing)' },
+  ];
+
+  const LOGISTICS_PROVIDERS = [
+    { value: '',             label: 'None' },
+    { value: 'giglogistics', label: 'GIG Logistics' },
+    { value: 'godisgoood',   label: 'God is Good Motors' },
+    { value: 'dhl',          label: 'DHL' },
+  ];
+
+  const webhookUrl = values.paymentProvider
+    ? `${window.location.origin}/api/payments/webhook/${values.paymentProvider}`
+    : null;
+
+  return (
+    <div className="bg-white border rounded-xl p-6 space-y-6">
+      <div className="flex items-center gap-3">
+        <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Zap size={16} /></div>
+        <div>
+          <h3 className="font-semibold text-gray-900">Integrations</h3>
+          <p className="text-xs text-gray-500 mt-0.5">Payment providers, bank transfer, and logistics</p>
+        </div>
+      </div>
+
+      {/* PBD Toggle */}
+      <div className="border rounded-lg p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-800">Enable Pay Before Delivery (PBD)</p>
+            <p className="text-xs text-gray-500 mt-0.5">Customers can pay online before their order is shipped. Requires a payment provider below.</p>
+          </div>
+          <label className="relative flex-shrink-0">
+            <input type="checkbox" checked={!!values.pbdEnabled} onChange={e => set('pbdEnabled', e.target.checked)} className="sr-only peer" />
+            <div className="w-10 h-6 bg-gray-200 rounded-full peer-checked:bg-primary transition-colors" />
+            <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4" />
+          </label>
+        </div>
+      </div>
+
+      {/* Payment Provider */}
+      <div className="space-y-3">
+        <p className="text-sm font-semibold text-gray-800">Payment Provider</p>
+        <select
+          value={values.paymentProvider ?? ''}
+          onChange={e => set('paymentProvider', e.target.value || null)}
+          className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+        >
+          {PAYMENT_PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+        </select>
+
+        {values.paymentProvider && (
+          <div className="space-y-3 border rounded-lg p-4 bg-gray-50">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Secret Key <span className="text-gray-400 font-normal">(server-side only — never exposed to browser)</span></label>
+              <div className="relative">
+                <input
+                  type={showSecretKey ? 'text' : 'password'}
+                  value={form?.paymentProviderKey ?? ''}
+                  onChange={e => set('paymentProviderKey', e.target.value)}
+                  placeholder="Leave blank to keep existing key"
+                  className="w-full border rounded-lg px-3 py-2 text-sm font-mono pr-16 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
+                />
+                <button type="button" onClick={() => setShowSecretKey(s => !s)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600">
+                  {showSecretKey ? 'Hide' : 'Show'}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Public Key</label>
+              <input
+                value={values.paymentPublicKey ?? ''}
+                onChange={e => set('paymentPublicKey', e.target.value)}
+                placeholder="pk_live_... or pk_test_..."
+                className="w-full border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Webhook Signing Secret</label>
+              <div className="relative">
+                <input
+                  type={showWebhookSecret ? 'text' : 'password'}
+                  value={form?.paymentWebhookSecret ?? ''}
+                  onChange={e => set('paymentWebhookSecret', e.target.value)}
+                  placeholder="Leave blank to keep existing secret"
+                  className="w-full border rounded-lg px-3 py-2 text-sm font-mono pr-16 focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
+                />
+                <button type="button" onClick={() => setShowWebhookSecret(s => !s)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600">
+                  {showWebhookSecret ? 'Hide' : 'Show'}
+                </button>
+              </div>
+            </div>
+            {webhookUrl && (
+              <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+                <p className="text-xs text-blue-700 font-medium mb-1">Configure this webhook URL in your {values.paymentProvider} dashboard:</p>
+                <p className="text-xs font-mono text-blue-800 break-all">{webhookUrl}</p>
+              </div>
+            )}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">WhatsApp Account for Payment Confirmations</label>
+              <select
+                value={values.paymentLinkAccountId ?? ''}
+                onChange={e => set('paymentLinkAccountId', e.target.value || null)}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
+              >
+                <option value="">Use first connected account</option>
+                {waAccounts.map(a => (
+                  <option key={a.id} value={a.id}>{a.displayName} {a.status !== 'CONNECTED' ? '(disconnected)' : ''}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Bank Transfer Details */}
+      <div className="space-y-3">
+        <div>
+          <p className="text-sm font-semibold text-gray-800">Bank Transfer Details</p>
+          <p className="text-xs text-gray-500 mt-0.5">Shown on the payment page when customers choose "Bank Transfer"</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Bank Name</label>
+            <input value={values.bankName ?? ''} onChange={e => set('bankName', e.target.value)}
+              placeholder="e.g. Zenith Bank"
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Account Number</label>
+            <input value={values.bankAccountNumber ?? ''} onChange={e => set('bankAccountNumber', e.target.value)}
+              placeholder="0123456789"
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+          </div>
+          <div className="col-span-2">
+            <label className="block text-xs font-medium text-gray-700 mb-1">Account Name</label>
+            <input value={values.bankAccountName ?? ''} onChange={e => set('bankAccountName', e.target.value)}
+              placeholder="e.g. John Doe / My Store Ltd"
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+          </div>
+        </div>
+      </div>
+
+      {/* Logistics Provider (stub) */}
+      <div className="space-y-2">
+        <p className="text-sm font-semibold text-gray-800">Logistics Provider</p>
+        <select disabled value={values.logisticsProvider ?? ''}
+          className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-400 cursor-not-allowed">
+          {LOGISTICS_PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+        </select>
+        <p className="text-xs text-gray-400">Logistics integrations are coming soon — no provider is active yet.</p>
+      </div>
+
+      {error && <p className="text-sm text-red-500">{error}</p>}
+      <div className="flex items-center gap-3 pt-1">
+        <button onClick={() => mutation.mutate(form ?? {})} disabled={mutation.isPending || !form}
+          className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-60">
+          {mutation.isPending ? 'Saving...' : 'Save Integrations'}
+        </button>
+        {saved && <span className="flex items-center gap-1.5 text-sm text-green-600"><CheckCircle size={14} /> Saved</span>}
+      </div>
+    </div>
+  );
+}
+
 // ── Profile Section ───────────────────────────────────────────────────────────
 function ProfileSection() {
   const user = useAuthStore(s => s.user);
@@ -596,6 +797,7 @@ export default function Settings() {
       {isAdmin && <StoreSettingsSection />}
       {isAdmin && <OrderSettingsSection />}
       {isAdmin && <PendingOrderSection />}
+      {isAdmin && <IntegrationsSection />}
       <ProfileSection />
       <PasswordSection />
       <SystemInfoSection />

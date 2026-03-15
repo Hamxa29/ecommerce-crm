@@ -74,6 +74,7 @@ function ProductModal({ product, defaultCategoryId, onClose }) {
     costPrice: product?.costPrice ?? '',
     stock: product?.stock ?? 0,
     status: product?.status ?? true,
+    paymentMethod: product?.paymentMethod ?? 'COD',
   });
   const [variations, setVariations] = useState(product?.variations ?? []);
   const [pricingTiers, setPricingTiers] = useState(product?.pricingTiers ?? []);
@@ -193,6 +194,31 @@ function ProductModal({ product, defaultCategoryId, onClose }) {
             <input type="checkbox" checked={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.checked }))} className="rounded" />
             Active product
           </label>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-2">Payment Method</label>
+            <div className="flex gap-2">
+              {[
+                { value: 'COD',  label: 'COD Only',  desc: 'Cash on delivery' },
+                { value: 'PBD',  label: 'PBD Only',  desc: 'Pay before delivery' },
+                { value: 'BOTH', label: 'Both',       desc: 'Customer chooses' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, paymentMethod: opt.value }))}
+                  className={`flex-1 border rounded-lg px-3 py-2 text-left transition-colors ${
+                    form.paymentMethod === opt.value
+                      ? 'border-primary bg-primary/5 text-primary'
+                      : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                  }`}
+                >
+                  <p className="text-xs font-semibold">{opt.label}</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">{opt.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
 
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <div className="flex gap-3 pt-2">
@@ -365,17 +391,18 @@ export default function Products() {
                   <th className="text-left px-4 py-3">Cost Price</th>
                   <th className="text-left px-4 py-3">Tiers</th>
                   <th className="text-left px-4 py-3">Stock</th>
+                  <th className="text-left px-4 py-3">Payment</th>
                   <th className="text-left px-4 py-3">Status</th>
                   <th className="text-right px-4 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {isLoading ? Array(5).fill(0).map((_, i) => (
-                  <tr key={i}>{Array(7).fill(0).map((_, j) => (
+                  <tr key={i}>{Array(8).fill(0).map((_, j) => (
                     <td key={j} className="px-4 py-3"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td>
                   ))}</tr>
                 )) : products.length === 0 ? (
-                  <tr><td colSpan={7}>
+                  <tr><td colSpan={8}>
                     <EmptyState
                       title={selectedCat ? `No products in "${selectedCat.name}"` : 'No products yet'}
                       description={selectedCat ? 'Click "Add to this category" above.' : 'Add your first product.'}
@@ -388,6 +415,15 @@ export default function Products() {
                     <td className="px-4 py-3 text-gray-600">{formatNGN(p.costPrice)}</td>
                     <td className="px-4 py-3 text-gray-600">{Array.isArray(p.pricingTiers) ? p.pricingTiers.length : 0} tiers</td>
                     <td className="px-4 py-3 text-gray-600">{p.stock}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                        p.paymentMethod === 'PBD'  ? 'bg-blue-100 text-blue-700' :
+                        p.paymentMethod === 'BOTH' ? 'bg-purple-100 text-purple-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {p.paymentMethod === 'PBD' ? 'PBD' : p.paymentMethod === 'BOTH' ? 'COD+PBD' : 'COD'}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.status ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                         {p.status ? 'Active' : 'Inactive'}

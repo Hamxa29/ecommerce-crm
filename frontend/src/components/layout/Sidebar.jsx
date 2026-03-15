@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, Package, FileText, Truck,
   CalendarCheck, ShoppingCart, MessageCircle,
   Phone, ScrollText, Radio, Zap, Settings, LogOut,
-  ChevronLeft, ChevronRight, ClipboardList,
+  ChevronLeft, ChevronRight, ClipboardList, Bot,
 } from 'lucide-react';
 
 const NAV_SECTIONS = [
@@ -50,6 +50,7 @@ const NAV_SECTIONS = [
       { to: '/whatsapp/templates', icon: ScrollText, label: 'Templates', roles: ['ADMIN', 'SUPERVISOR', 'STAFF'] },
       { to: '/whatsapp/broadcast', icon: Radio, label: 'Broadcast', roles: ['ADMIN', 'SUPERVISOR', 'STAFF'] },
       { to: '/whatsapp/automation', icon: Zap, label: 'Automation', roles: ['ADMIN', 'SUPERVISOR'] },
+      { to: '/whatsapp/chatbot',    icon: Bot, label: 'AI Chatbot',  roles: ['ADMIN', 'SUPERVISOR'] },
     ],
   },
   {

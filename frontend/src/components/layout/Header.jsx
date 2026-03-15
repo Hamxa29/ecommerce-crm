@@ -2,7 +2,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 
 const ROUTE_TITLES = {
-  '/': 'Dashboard',
+  '/': 'Dashboard Analytics',
   '/orders': 'Orders',
   '/deliveries-today': "Today's Deliveries",
   '/followups-today': "Today's Follow-ups",
@@ -27,14 +27,14 @@ export default function Header() {
     ?? (pathname.startsWith('/orders/') ? 'Order Details' : 'CRM');
 
   return (
-    <header className="h-14 border-b bg-white flex items-center justify-between px-6 shrink-0">
-      <h1 className="text-base font-semibold text-gray-800">{title}</h1>
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-white text-xs font-semibold">
+    <header className="h-[72px] bg-gray-50/50 flex items-center justify-between px-8 shrink-0">
+      <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{title}</h1>
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 bg-white border border-gray-100 shadow-sm px-3 py-1.5 rounded-full cursor-pointer hover:bg-gray-50 transition-colors">
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-bold">
             {user?.name?.charAt(0)?.toUpperCase() ?? 'U'}
           </div>
-          <span className="text-sm text-gray-700 hidden sm:block">{user?.name}</span>
+          <span className="text-sm font-medium text-gray-700 pr-1 hidden sm:block">{user?.name}</span>
         </div>
       </div>
     </header>

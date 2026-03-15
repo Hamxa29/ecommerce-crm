@@ -47,9 +47,21 @@ export async function createProduct(data) {
 }
 
 export async function updateProduct(id, data) {
+  const updateData = {};
+  if (data.name           !== undefined) updateData.name           = data.name;
+  if (data.categoryId     !== undefined) updateData.category       = { connect: { id: data.categoryId } };
+  if (data.country        !== undefined) updateData.country        = data.country;
+  if (data.costPrice      !== undefined) updateData.costPrice      = data.costPrice;
+  if (data.stock          !== undefined) updateData.stock          = data.stock;
+  if (data.status         !== undefined) updateData.status         = data.status;
+  if (data.variations     !== undefined) updateData.variations     = data.variations;
+  if (data.pricingTiers   !== undefined) updateData.pricingTiers   = data.pricingTiers;
+  if (data.stateDeliveryFees !== undefined) updateData.stateDeliveryFees = data.stateDeliveryFees;
+  if (data.paymentMethod  !== undefined) updateData.paymentMethod  = data.paymentMethod;
+
   return prisma.product.update({
     where: { id },
-    data,
+    data: updateData,
     include: { category: { select: { id: true, name: true } } },
   });
 }

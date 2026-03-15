@@ -12,6 +12,7 @@
     "seed": "node src/scripts/seedAdmin.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
     "@prisma/client": "^5.22.0",
     "axios": "^1.7.9",
     "bcryptjs": "^2.4.3",

@@ -47,3 +47,14 @@ export const TEMPLATE_VARIABLES = [
   { key: '{{customername_state}}', label: 'Name + State' },
   { key: '{{formlink}}', label: 'Form Link' },
 ];
+
+export const PAYMENT_METHODS = [
+  { value: 'COD', label: 'Cash on Delivery', color: 'bg-gray-100 text-gray-600' },
+  { value: 'PBD', label: 'Pay Before Delivery', color: 'bg-blue-100 text-blue-700' },
+];
+
+export const PRODUCT_PAYMENT_METHODS = [
+  { value: 'COD',  label: 'COD Only' },
+  { value: 'PBD',  label: 'PBD Only' },
+  { value: 'BOTH', label: 'Both' },
+];

@@ -345,17 +345,18 @@ export default function Orders() {
                 <th className="text-left px-4 py-3">State</th>
                 <th className="text-left px-4 py-3">Amount</th>
                 <th className="text-left px-4 py-3">Status</th>
+                <th className="text-left px-4 py-3">Payment</th>
                 <th className="text-left px-4 py-3">Delivery Agent</th>
                 <th className="text-left px-4 py-3">Date</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {isLoading ? Array(8).fill(0).map((_, i) => (
-                <tr key={i}>{Array(9).fill(0).map((_, j) => (
+                <tr key={i}>{Array(10).fill(0).map((_, j) => (
                   <td key={j} className="px-4 py-3"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td>
                 ))}</tr>
               )) : orders.length === 0 ? (
-                <tr><td colSpan={9}><EmptyState title="No orders found" description="Try adjusting your filters." /></td></tr>
+                <tr><td colSpan={10}><EmptyState title="No orders found" description="Try adjusting your filters." /></td></tr>
               ) : orders.map(order => (
                 <tr key={order.id} className={`hover:bg-gray-50 ${selectedIds.includes(order.id) ? 'bg-blue-50/50' : ''}`}>
                   <td className="px-4 py-3">
@@ -372,6 +373,12 @@ export default function Orders() {
                   <td className="px-4 py-3 text-gray-600">{order.state}</td>
                   <td className="px-4 py-3 text-gray-900">{formatNGN(order.totalAmount)}</td>
                   <td className="px-4 py-3"><OrderStatusBadge status={order.status} /></td>
+                  <td className="px-4 py-3">
+                    {order.paymentMethod === 'PBD'
+                      ? <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">PBD</span>
+                      : <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">COD</span>
+                    }
+                  </td>
                   <td className="px-4 py-3 text-gray-600">{order.agent?.name ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{formatDate(order.createdAt)}</td>
                 </tr>

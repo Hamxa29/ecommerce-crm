@@ -17,6 +17,8 @@ import WaBroadcast from './pages/WaBroadcast';
 import WaAutomation from './pages/WaAutomation';
 import Settings from './pages/Settings';
 import PublicOrderForm from './pages/PublicOrderForm';
+import PublicPaymentPage from './pages/PublicPaymentPage';
+import WaChatbot from './pages/WaChatbot';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,6 +36,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/form/:slug" element={<PublicOrderForm />} />
+          <Route path="/pay/:orderNumber" element={<PublicPaymentPage />} />
 
           <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />
@@ -53,6 +56,7 @@ export default function App() {
             <Route path="/whatsapp/templates" element={<WaTemplates />} />
             <Route path="/whatsapp/broadcast" element={<WaBroadcast />} />
             <Route path="/whatsapp/automation" element={<WaAutomation />} />
+            <Route path="/whatsapp/chatbot"    element={<WaChatbot />} />
             <Route path="/settings" element={<Settings />} />
           </Route>
 

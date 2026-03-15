@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { formatNGN } from '@/lib/utils';
 import { NIGERIA_STATES } from '@/lib/constants';
 import axios from 'axios';
@@ -226,6 +226,7 @@ function OrderBumpSection({ product, mainProductId, accepted, onToggle, selected
 // ── Main Public Form ──────────────────────────────────────────────────────────
 export default function PublicOrderForm() {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const [form, setForm] = useState(null);
   const [loadError, setLoadError] = useState(null);
 
@@ -401,6 +402,11 @@ export default function PublicOrderForm() {
       // Mark the abandoned cart as recovered
       if (cartId.current) {
         pub.post(`/forms/public/${slug}/recover/${cartId.current}`).catch(() => {});
+      }
+      // If PBD (or BOTH stored as PBD), redirect to payment page
+      if (data.paymentMethod && data.paymentMethod !== 'COD') {
+        navigate(`/pay/${data.orderNumber}`);
+        return;
       }
       setPlacedOrder(data);
     } catch (err) {

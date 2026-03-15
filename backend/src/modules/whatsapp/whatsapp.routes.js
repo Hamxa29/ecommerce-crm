@@ -1,8 +1,13 @@
 import { Router } from 'express';
 import { authenticate } from '../../middleware/auth.js';
 import * as ctrl from './whatsapp.controller.js';
+import { receiveChatbotWebhook } from '../chatbot/chatbot.controller.js';
 
 const router = Router();
+
+// ── Public: Evolution API incoming message webhook (no auth) ──────────────────
+router.post('/webhook/incoming', receiveChatbotWebhook);
+
 router.use(authenticate);
 
 // Direct QR by instance name (no DB lookup needed)

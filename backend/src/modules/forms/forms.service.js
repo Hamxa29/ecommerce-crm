@@ -83,11 +83,21 @@ export async function recordHit(slug) {
 }
 
 export async function submitForm(slug, body) {
-  const form = await prisma.form.findUniqueOrThrow({ where: { slug, status: true } });
+  const form = await prisma.form.findUniqueOrThrow({
+    where: { slug, status: true },
+    include: { products: { include: { product: { select: { id: true, paymentMethod: true } } }, orderBy: { displayOrder: 'asc' } } },
+  });
 
   const orderNumber = await generateOrderNumber();
   const items = body.items ?? [];
   const totalAmount = items.reduce((sum, i) => sum + (i.unitPrice * i.quantity), 0);
+
+  // Resolve effective payment method: form override > first product > COD
+  const formPM = form.paymentMethod; // null | "COD" | "PBD" | "BOTH"
+  const firstProductPM = form.products?.[0]?.product?.paymentMethod ?? 'COD';
+  const effectivePM = formPM ?? firstProductPM; // "COD" | "PBD" | "BOTH"
+  // BOTH → store as PBD (customer chooses on payment page which includes a COD option)
+  const orderPaymentMethod = effectivePM === 'BOTH' ? 'PBD' : effectivePM;
 
   const order = await prisma.order.create({
     data: {
@@ -104,6 +114,7 @@ export async function submitForm(slug, body) {
       source: 'form',
       formId: form.id,
       totalAmount,
+      paymentMethod: orderPaymentMethod,
       notes: body.notes,
       items: {
         create: items.map(i => ({

@@ -255,6 +255,7 @@ function FormModal({ form, onClose }) {
   );
   const [bumpConfigs, setBumpConfigs] = useState(savedSettings.bumps ?? {});
   const [formType, setFormType] = useState(savedSettings.formType ?? 'order_form');
+  const [paymentMethod, setPaymentMethod] = useState(form?.paymentMethod ?? null);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('fields'); // 'fields' | 'products' | 'style'
 
@@ -314,6 +315,7 @@ function FormModal({ form, onClose }) {
     saveMutation.mutate({
       name: name.trim(),
       slug: slug.trim(),
+      paymentMethod: paymentMethod || null,
       products: selectedProducts,
       embedSettings: { header, subheader, submitText, fields, customFields, bumps: bumpConfigs, formType },
     });
@@ -514,6 +516,34 @@ function FormModal({ form, onClose }) {
           {/* ── Tab: Style & Text ── */}
           {activeTab === 'style' && (
             <div className="py-3 space-y-3">
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">Payment Method Override</label>
+                <div className="flex gap-2">
+                  {[
+                    { value: null,   label: 'Inherit',  desc: 'From product' },
+                    { value: 'COD',  label: 'COD Only',  desc: 'Cash on delivery' },
+                    { value: 'PBD',  label: 'PBD Only',  desc: 'Pay before delivery' },
+                    { value: 'BOTH', label: 'Both',       desc: 'Customer chooses' },
+                  ].map(opt => (
+                    <button
+                      key={String(opt.value)}
+                      type="button"
+                      onClick={() => setPaymentMethod(opt.value)}
+                      className={`flex-1 border rounded-lg px-2 py-2 text-left transition-colors ${
+                        paymentMethod === opt.value
+                          ? 'border-primary bg-primary/5 text-primary'
+                          : 'border-gray-200 hover:border-gray-300 text-gray-700'
+                      }`}
+                    >
+                      <p className="text-xs font-semibold">{opt.label}</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">{opt.desc}</p>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1.5">When set to "Inherit", uses the payment method configured on each product.</p>
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Form Header Text</label>
                 <input value={header} onChange={e => setHeader(e.target.value)}
@@ -623,9 +653,20 @@ export default function Forms() {
                 <div>
                   <h3 className="font-semibold text-gray-900">{form.name}</h3>
                   <p className="text-xs text-gray-400 mt-0.5">/form/{form.slug}</p>
-                  <span className={`inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full font-medium ${(form.embedSettings?.formType ?? 'order_form') === 'upsell_form' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'}`}>
-                    {(form.embedSettings?.formType ?? 'order_form') === 'upsell_form' ? 'Upsell Form' : 'Order Form'}
-                  </span>
+                  <div className="flex items-center gap-1 mt-1 flex-wrap">
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${(form.embedSettings?.formType ?? 'order_form') === 'upsell_form' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'}`}>
+                      {(form.embedSettings?.formType ?? 'order_form') === 'upsell_form' ? 'Upsell Form' : 'Order Form'}
+                    </span>
+                    {form.paymentMethod && (
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                        form.paymentMethod === 'PBD'  ? 'bg-blue-100 text-blue-700' :
+                        form.paymentMethod === 'BOTH' ? 'bg-purple-100 text-purple-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {form.paymentMethod === 'BOTH' ? 'COD+PBD' : form.paymentMethod}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button onClick={() => toggleMutation.mutate({ id: form.id, status: !form.status })}
                   className={`text-lg ${form.status ? 'text-green-500' : 'text-gray-300'}`}>

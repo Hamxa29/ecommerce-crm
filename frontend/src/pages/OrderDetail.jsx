@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ordersApi } from '@/api/orders.api';
+import { paymentsApi } from '@/api/payments.api';
 import client from '@/api/client';
 import { ORDER_STATUSES } from '@/lib/constants';
 import { formatNGN, formatDate } from '@/lib/utils';
 import OrderStatusBadge from '@/components/shared/OrderStatusBadge';
 import PhoneLink from '@/components/shared/PhoneLink';
 import CalendarPicker from '@/components/shared/CalendarPicker';
-import { ArrowLeft, Clock, MessageCircle, Loader2, Trash2, Truck } from 'lucide-react';
+import { ArrowLeft, Clock, MessageCircle, Loader2, Trash2, Truck, CreditCard, CheckCircle2 } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 
 export default function OrderDetail() {
@@ -61,6 +62,11 @@ export default function OrderDetail() {
   const deleteMutation = useMutation({
     mutationFn: () => ordersApi.hardDelete(id),
     onSuccess: () => { qc.invalidateQueries(['orders']); navigate('/orders'); },
+  });
+
+  const sendLinkMutation = useMutation({
+    mutationFn: () => paymentsApi.sendLink(id),
+    onSuccess: () => qc.invalidateQueries(['order', id]),
   });
 
   if (isLoading) return (
@@ -249,7 +255,51 @@ export default function OrderDetail() {
           <div className="bg-white rounded-xl border p-5 text-sm space-y-3">
             <h3 className="font-semibold text-gray-700">Order Details</h3>
             <div className="flex justify-between"><span className="text-gray-500">Source</span><span className="capitalize">{order.source}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">Payment</span><span className="capitalize">{order.paymentStatus?.toLowerCase()}</span></div>
+            {/* Payment method */}
+            <div className="flex justify-between items-center">
+              <span className="text-gray-500">Payment Method</span>
+              {order.paymentMethod === 'PBD'
+                ? <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">Pay Before Delivery</span>
+                : <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">Cash on Delivery</span>
+              }
+            </div>
+            {/* Payment status */}
+            <div className="flex justify-between"><span className="text-gray-500">Payment Status</span><span className="capitalize">{order.paymentStatus?.toLowerCase() ?? '—'}</span></div>
+            {/* Reference */}
+            {order.paymentReference && (
+              <div className="flex justify-between items-center gap-4">
+                <span className="text-gray-500 flex-shrink-0">Reference</span>
+                <span className="font-mono text-xs text-gray-700 break-all text-right">{order.paymentReference}</span>
+              </div>
+            )}
+            {/* Confirmed at */}
+            {order.paymentConfirmedAt && (
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500">Paid At</span>
+                <span className="text-green-600 font-medium flex items-center gap-1 text-xs">
+                  <CheckCircle2 className="w-3.5 h-3.5" />{formatDate(order.paymentConfirmedAt)}
+                </span>
+              </div>
+            )}
+            {/* Send payment link (staff action) */}
+            {order.paymentMethod === 'PBD' && order.paymentStatus !== 'PAID' && (
+              <div className="pt-1">
+                <button
+                  onClick={() => sendLinkMutation.mutate()}
+                  disabled={sendLinkMutation.isPending}
+                  className="flex items-center gap-2 text-xs font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  {sendLinkMutation.isPending ? 'Sending…' : 'Send Payment Link'}
+                </button>
+                {sendLinkMutation.isSuccess && (
+                  <p className="text-xs text-green-600 mt-1">Payment link sent!</p>
+                )}
+                {sendLinkMutation.isError && (
+                  <p className="text-xs text-red-500 mt-1">Failed to send link.</p>
+                )}
+              </div>
+            )}
             <div className="flex justify-between"><span className="text-gray-500">Delivery Agent</span><span>{order.agent?.name ?? '—'}</span></div>
             <div className="flex justify-between"><span className="text-gray-500">Staff</span><span>{order.assignedStaff?.name ?? '—'}</span></div>
             {order.scheduledDate && (

@@ -9,11 +9,22 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/', async (req, res, next) => {
-  try { res.json(await getSettings()); } catch (e) { next(e); }
+  try {
+    const settings = await getSettings();
+    // Strip sensitive credentials — never expose to frontend
+    const { paymentProviderKey, paymentWebhookSecret, logisticsApiKey, ...safe } = settings;
+    res.json(safe);
+  } catch (e) { next(e); }
 });
 
 router.put('/', requireRole('ADMIN'), async (req, res, next) => {
-  try { res.json(await updateSettings(req.body)); } catch (e) { next(e); }
+  try {
+    const data = { ...req.body };
+    // Don't overwrite secret fields when frontend sends empty/null (key was never loaded into form)
+    if (!data.paymentProviderKey) delete data.paymentProviderKey;
+    if (!data.paymentWebhookSecret) delete data.paymentWebhookSecret;
+    res.json(await updateSettings(data));
+  } catch (e) { next(e); }
 });
 
 router.post('/test-email', requireRole('ADMIN'), async (req, res) => {

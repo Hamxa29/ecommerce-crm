@@ -71,10 +71,11 @@ model Product {
   costPrice         Decimal         @db.Decimal(12, 2)
   stock             Int             @default(0)
   status            Boolean         @default(true)
-  variations        Json            @default("[]")
-  pricingTiers      Json            @default("[]")
-  stateDeliveryFees Json            @default("{}")
-  createdAt         DateTime        @default(now())
+  variations        Json                 @default("[]")
+  pricingTiers      Json                 @default("[]")
+  stateDeliveryFees Json                 @default("{}")
+  paymentMethod     ProductPaymentMethod @default(COD)
+  createdAt         DateTime             @default(now())
   updatedAt         DateTime        @updatedAt
 
   formProducts FormProduct[]
@@ -132,6 +133,17 @@ enum PaymentStatus {
   REMITTED
 }
 
+enum PaymentMethod {
+  COD
+  PBD
+}
+
+enum ProductPaymentMethod {
+  COD
+  PBD
+  BOTH
+}
+
 model Order {
   id              String        @id @default(cuid())
   orderNumber     String        @unique
@@ -144,9 +156,13 @@ model Order {
   city            String?
   country         String        @default("Nigeria")
   ipAddress       String?
-  status          OrderStatus   @default(PENDING)
-  paymentStatus   PaymentStatus @default(UNPAID)
-  source          String        @default("manual")
+  status             OrderStatus   @default(PENDING)
+  paymentStatus      PaymentStatus @default(UNPAID)
+  paymentMethod      PaymentMethod @default(COD)
+  paymentReference   String?
+  paymentLink        String?
+  paymentConfirmedAt DateTime?
+  source             String        @default("manual")
   formId          String?
   tags            String[]      @default([])
   totalAmount     Decimal       @db.Decimal(12, 2)
@@ -176,6 +192,7 @@ model Order {
   @@index([createdAt])
   @@index([customerPhone])
   @@index([state])
+  @@index([paymentMethod])
   @@map("orders")
 }
 
@@ -240,6 +257,7 @@ model Form {
   conversions   Int      @default(0)
   abandonments  Int      @default(0)
   embedSettings Json     @default("{}")
+  paymentMethod String?  // null = inherit from product | "COD" | "PBD" | "BOTH"
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -377,9 +395,49 @@ model StoreSettings {
   pendingAutoDeleteEnabled Boolean @default(false)
   pendingAutoDeleteDays    Int     @default(30)
 
+  // Payment integration
+  pbdEnabled           Boolean  @default(false)
+  paymentProvider      String?
+  paymentProviderKey   String?
+  paymentPublicKey     String?
+  paymentWebhookSecret String?
+  paymentLinkAccountId String?
+
+  // Bank transfer details
+  bankName             String?
+  bankAccountNumber    String?
+  bankAccountName      String?
+
+  // Logistics integration (stub)
+  logisticsProvider    String?
+  logisticsApiKey      String?
+
+  // AI Chatbot
+  chatbotEnabled       Boolean @default(false)
+  chatbotAccountId     String?  // which WhatsappAccount handles incoming chats
+  chatbotSystemPrompt  String?  // custom personality / rules appended to system prompt
+  chatbotFallbackPhone String?  // staff phone to notify when bot can't answer
+  chatbotModel         String  @default("claude-sonnet-4-6")
+
   updatedAt             DateTime @updatedAt
 
   @@map("store_settings")
+}
+
+// ─────────────────── CHATBOT ───────────────────
+
+model ChatbotConversation {
+  id            String   @id @default(cuid())
+  phone         String   @unique
+  pushName      String?
+  messages      Json     @default("[]")
+  lastMessageAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([phone])
+  @@index([lastMessageAt])
+  @@map("chatbot_conversations")
 }
 
 // ─────────────────── AUDIT LOG ───────────────────

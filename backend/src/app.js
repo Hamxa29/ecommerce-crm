@@ -14,6 +14,8 @@ import agentsRoutes     from './modules/agents/agents.routes.js';
 import whatsappRoutes   from './modules/whatsapp/whatsapp.routes.js';
 import formsRoutes      from './modules/forms/forms.routes.js';
 import settingsRoutes   from './modules/settings/settings.routes.js';
+import paymentsRoutes   from './modules/payments/payments.routes.js';
+import chatbotRoutes    from './modules/chatbot/chatbot.routes.js';
 
 const app = express();
 
@@ -25,6 +27,8 @@ app.use(cors({
   origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   credentials: true,
 }));
+// Raw body capture for payment webhooks (needed for HMAC signature verification)
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -41,6 +45,8 @@ app.use('/api/agents',             agentsRoutes);
 app.use('/api/whatsapp',           whatsappRoutes);
 app.use('/api/forms',              formsRoutes);
 app.use('/api/settings',           settingsRoutes);
+app.use('/api/payments',           paymentsRoutes);
+app.use('/api/chatbot',            chatbotRoutes);
 
 // Health check — update BUILD to verify deploys are live
 const BUILD = '2026-03-09-v3';

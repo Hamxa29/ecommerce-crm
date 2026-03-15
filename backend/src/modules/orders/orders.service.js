@@ -81,6 +81,7 @@ export async function createOrder(data, actorId) {
       ipAddress: data.ipAddress ?? null,
       status: data.status ?? 'PENDING',
       paymentStatus: data.paymentStatus ?? 'UNPAID',
+      paymentMethod: data.paymentMethod ?? 'COD',
       source: data.source ?? 'manual',
       formId: data.formId ?? null,
       tags: data.tags ?? [],
@@ -257,18 +258,36 @@ export async function getStats(period = '7d') {
     prevStart = new Date(periodStart); prevStart.setDate(prevStart.getDate() - days);
   }
 
-  const [currentOrders, prevOrders, byStatus, abandonedByStatus] = await Promise.all([
+  const periodWhere = { createdAt: { gte: periodStart, lte: periodEnd }, status: { notIn: ['DELETED'] } };
+
+  const [currentOrders, prevOrders, topProductRows, abandonedByStatus] = await Promise.all([
     prisma.order.findMany({
-      where: { createdAt: { gte: periodStart, lte: periodEnd }, status: { notIn: ['DELETED'] } },
-      select: { status: true, totalAmount: true },
+      where: periodWhere,
+      select: { status: true, totalAmount: true, paymentStatus: true, paymentMethod: true,
+                state: true, customerName: true, customerPhone: true },
     }),
     prisma.order.findMany({
       where: { createdAt: { gte: prevStart, lt: periodStart }, status: { notIn: ['DELETED'] } },
       select: { status: true, totalAmount: true },
     }),
-    prisma.order.groupBy({ by: ['status'], _count: { id: true } }),
+    // Top products by revenue for the period (via order items)
+    prisma.orderItem.groupBy({
+      by: ['productId'],
+      where: { order: periodWhere },
+      _sum: { subtotal: true },
+      _count: { id: true },
+      orderBy: { _sum: { subtotal: 'desc' } },
+      take: 8,
+    }),
     prisma.abandonedCart.groupBy({ by: ['recoveryStatus'], _count: { id: true } }),
   ]);
+
+  // Fetch product names for top products
+  const productIds = topProductRows.map(r => r.productId);
+  const productNames = productIds.length
+    ? await prisma.product.findMany({ where: { id: { in: productIds } }, select: { id: true, name: true } })
+    : [];
+  const productNameMap = Object.fromEntries(productNames.map(p => [p.id, p.name]));
 
   const sumAmount = (orders) => orders.reduce((s, o) => s + Number(o.totalAmount), 0);
   const countStatus = (orders, status) => orders.filter(o => o.status === status).length;
@@ -277,11 +296,43 @@ export async function getStats(period = '7d') {
   const prevTotal = sumAmount(prevOrders);
   const pctChange = (a, b) => b === 0 ? 0 : Math.round(((a - b) / b) * 100);
 
+  // Period-aware status breakdown
   const statusMap = {};
-  byStatus.forEach(r => { statusMap[r.status] = r._count.id; });
+  currentOrders.forEach(o => { statusMap[o.status] = (statusMap[o.status] ?? 0) + 1; });
 
   const abandonedMap = {};
   abandonedByStatus.forEach(r => { abandonedMap[r.recoveryStatus] = r._count.id; });
+
+  // Top states
+  const stateMap = {};
+  currentOrders.forEach(o => {
+    if (o.state) stateMap[o.state] = (stateMap[o.state] ?? 0) + 1;
+  });
+  const topStates = Object.entries(stateMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([state, count]) => ({ state, count }));
+
+  // Top customers by total spend
+  const customerMap = {};
+  currentOrders.forEach(o => {
+    const key = o.customerPhone;
+    if (!key) return;
+    if (!customerMap[key]) customerMap[key] = { name: o.customerName, phone: o.customerPhone, count: 0, total: 0 };
+    customerMap[key].count++;
+    customerMap[key].total += Number(o.totalAmount);
+  });
+  const topCustomers = Object.values(customerMap)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 10);
+
+  // Top products
+  const topProducts = topProductRows.map(r => ({
+    productId: r.productId,
+    name: productNameMap[r.productId] ?? 'Unknown',
+    count: r._count.id,
+    revenue: Number(r._sum.subtotal ?? 0),
+  }));
 
   return {
     period,
@@ -294,6 +345,15 @@ export async function getStats(period = '7d') {
       awaiting: countStatus(currentOrders, 'AWAITING'),
       scheduled: countStatus(currentOrders, 'SCHEDULED'),
       cancelled: countStatus(currentOrders, 'CANCELLED'),
+      cancelledAmount: sumAmount(
+        currentOrders.filter(o => o.status === 'CANCELLED' || o.status === 'FAILED')
+      ),
+      deliveryRate: currentOrders.length === 0
+        ? 0
+        : Math.round((countStatus(currentOrders, 'DELIVERED') / currentOrders.length) * 100),
+      paidOnlineAmount: sumAmount(
+        currentOrders.filter(o => o.paymentStatus === 'PAID' && o.paymentMethod === 'PBD')
+      ),
     },
     lastWeek: {
       count: prevOrders.length,
@@ -304,6 +364,9 @@ export async function getStats(period = '7d') {
       amountChange: pctChange(currentTotal, prevTotal),
     },
     byStatus: statusMap,
+    topStates,
+    topCustomers,
+    topProducts,
     abandoned: {
       pending:   abandonedMap.pending   ?? 0,
       messaged:  abandonedMap.messaged  ?? 0,
