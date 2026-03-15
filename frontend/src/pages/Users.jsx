@@ -12,7 +12,7 @@ const PERMISSIONS = [
   { key: 'financials', label: 'Financials' },
   { key: 'customers', label: 'Customer Data' },
   { key: 'products', label: 'Products' },
-  { key: 'agents', label: 'Agents' },
+  { key: 'agents', label: 'Delivery Agents' },
   { key: 'whatsapp', label: 'WhatsApp' },
   { key: 'reports', label: 'Reports' },
 ];
@@ -24,6 +24,7 @@ function UserModal({ user, onClose }) {
   const [form, setForm] = useState({
     name: user?.name ?? '', email: user?.email ?? '', password: '',
     role: user?.role ?? 'STAFF', status: user?.status ?? true,
+    whatsappPhone: user?.whatsappPhone ?? '',
   });
   const [error, setError] = useState('');
 
@@ -63,6 +64,7 @@ function UserModal({ user, onClose }) {
             {inp('email', 'Email *', 'email')}
           </div>
           <div className="grid grid-cols-2 gap-4">
+            {inp('whatsappPhone', 'WhatsApp Number', 'text')}
             {inp('password', isEdit ? 'New Password (leave blank)' : 'Password *', 'password')}
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Role</label>
@@ -170,6 +172,7 @@ export default function Users() {
             <tr className="border-b bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
               <th className="text-left px-4 py-3">Name</th>
               <th className="text-left px-4 py-3">Email</th>
+              <th className="text-left px-4 py-3">WhatsApp</th>
               <th className="text-left px-4 py-3">Role</th>
               <th className="text-left px-4 py-3">Status</th>
               <th className="text-left px-4 py-3">Last Login</th>
@@ -187,6 +190,7 @@ export default function Users() {
               <tr key={user.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium text-gray-900">{user.name}</td>
                 <td className="px-4 py-3 text-gray-600">{user.email}</td>
+                <td className="px-4 py-3 text-gray-500 text-xs">{user.whatsappPhone || '—'}</td>
                 <td className="px-4 py-3">
                   <span className="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-full">
                     {user.role?.replace('_', ' ').toLowerCase()}

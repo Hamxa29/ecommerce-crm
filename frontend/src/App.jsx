@@ -6,12 +6,10 @@ import Dashboard from './pages/Dashboard';
 import Orders from './pages/Orders';
 import OrderDetail from './pages/OrderDetail';
 import Users from './pages/Users';
-import ProductCategories from './pages/ProductCategories';
 import Products from './pages/Products';
 import Forms from './pages/Forms';
 import Agents from './pages/Agents';
-import DeliveriesToday from './pages/DeliveriesToday';
-import FollowupsToday from './pages/FollowupsToday';
+import TodaySchedule from './pages/TodaySchedule';
 import AbandonedCarts from './pages/AbandonedCarts';
 import WaAccounts from './pages/WaAccounts';
 import WaTemplates from './pages/WaTemplates';
@@ -42,12 +40,14 @@ export default function App() {
             <Route path="/orders" element={<Orders />} />
             <Route path="/orders/:id" element={<OrderDetail />} />
             <Route path="/users" element={<Users />} />
-            <Route path="/product-categories" element={<ProductCategories />} />
+            <Route path="/product-categories" element={<Navigate to="/products" replace />} />
             <Route path="/products" element={<Products />} />
             <Route path="/forms" element={<Forms />} />
             <Route path="/agents" element={<Agents />} />
-            <Route path="/deliveries-today" element={<DeliveriesToday />} />
-            <Route path="/followups-today" element={<FollowupsToday />} />
+            <Route path="/today" element={<TodaySchedule />} />
+            {/* Keep old routes as redirects */}
+            <Route path="/deliveries-today" element={<Navigate to="/today" replace />} />
+            <Route path="/followups-today" element={<Navigate to="/today" replace />} />
             <Route path="/abandoned-carts" element={<AbandonedCarts />} />
             <Route path="/whatsapp/accounts" element={<WaAccounts />} />
             <Route path="/whatsapp/templates" element={<WaTemplates />} />

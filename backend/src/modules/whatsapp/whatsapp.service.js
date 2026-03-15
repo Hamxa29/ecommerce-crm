@@ -144,9 +144,13 @@ export async function sendBroadcast({ accountId, orderIds, templateId, customMes
     ? await prisma.whatsappTemplate.findUnique({ where: { id: templateId } })
     : null;
 
+  const settings = await prisma.storeSettings.findUnique({ where: { id: 'singleton' } });
+  const brandName  = settings?.storeName ?? '';
+  const brandPhone = settings?.brandPhone ?? '';
+
   const orders = await prisma.order.findMany({
     where: { id: { in: orderIds } },
-    include: { items: { include: { product: true } }, agent: true },
+    include: { items: { include: { product: true } }, agent: true, assignedStaff: { select: { name: true } } },
   });
 
   const results = [];
@@ -154,15 +158,15 @@ export async function sendBroadcast({ accountId, orderIds, templateId, customMes
   for (const order of orders) {
     const msgTemplate = template?.content ?? customMessage ?? '';
     const msg = applyTemplate(msgTemplate, {
-      customerName: order.customerName,
-      customerPhone: order.customerPhone,
-      orderNumber: order.orderNumber,
-      state: order.state,
-      productName: order.items[0]?.product?.name ?? '',
-      price: order.totalAmount,
-      brandName: '',
-      brandPhone: '',
-      assignedStaffName: '',
+      customerName:      order.customerName,
+      customerPhone:     order.customerPhone,
+      orderNumber:       order.orderNumber,
+      state:             order.state,
+      productName:       order.items[0]?.product?.name ?? '',
+      price:             order.totalAmount,
+      brandName,
+      brandPhone,
+      assignedStaffName: order.assignedStaff?.name ?? '',
     });
 
     const useMediaUrl = mediaUrl || template?.mediaUrl;
@@ -233,21 +237,65 @@ export async function triggerAutomationForOrder(order, newStatus) {
   const rules = await prisma.whatsappAutomation.findMany({
     where: { triggerStatus: newStatus, enabled: true },
   });
+  if (rules.length === 0) return;
+
+  // Fetch brand details from store settings once
+  const settings = await prisma.storeSettings.findUnique({ where: { id: 'singleton' } });
+  const brandName  = settings?.storeName ?? '';
+  const brandPhone = settings?.brandPhone ?? '';
 
   for (const rule of rules) {
     const execute = async () => {
       try {
-        await sendBroadcast({
-          accountId: rule.accountId,
-          orderIds: [order.id],
-          templateId: rule.templateId,
-          customMessage: rule.customMessage,
-          mediaUrl: rule.mediaUrl,
+        const account = await prisma.whatsappAccount.findUnique({ where: { id: rule.accountId } });
+        if (!account || account.status !== 'CONNECTED') {
+          console.warn(`[Automation] Account ${rule.accountId} not connected, skipping`);
+          return;
+        }
+
+        const template = rule.templateId
+          ? await prisma.whatsappTemplate.findUnique({ where: { id: rule.templateId } })
+          : null;
+
+        const msgTemplate = template?.content ?? rule.customMessage ?? '';
+        if (!msgTemplate) return;
+
+        const msg = applyTemplate(msgTemplate, {
+          customerName:      order.customerName,
+          customerPhone:     order.customerPhone,
+          orderNumber:       order.orderNumber,
+          state:             order.state,
+          productName:       order.items?.[0]?.product?.name ?? '',
+          price:             order.totalAmount,
+          brandName,
+          brandPhone,
+          assignedStaffName: order.assignedStaff?.name ?? '',
+          formlink:          '',
         });
+
+        const phone = normalizePhone(order.customerPhone);
+        if (template?.mediaUrl) {
+          await sendMedia(account.instanceName, phone, msg, template.mediaUrl, template.mediaType ?? 'image');
+        } else {
+          await sendText(account.instanceName, phone, msg);
+        }
+
+        await prisma.whatsappMessageLog.create({
+          data: {
+            accountId: rule.accountId,
+            orderId:   order.id,
+            toPhone:   phone,
+            message:   msg,
+            status:    'sent',
+          },
+        });
+
         await prisma.whatsappAutomation.update({
           where: { id: rule.id },
           data: { sentCount: { increment: 1 } },
         });
+
+        console.log(`[Automation] Sent to ${phone} for order ${order.orderNumber} (status: ${newStatus})`);
       } catch (err) {
         console.error('[Automation] Failed to send:', err.message);
       }

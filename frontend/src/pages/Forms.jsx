@@ -13,7 +13,7 @@ const DEFAULT_FIELDS = {
   name:    { show: true,  required: true,  label: 'Your Name' },
   phone:   { show: true,  required: true,  label: 'Your Phone Number' },
   phone2:  { show: true,  required: false, label: 'WhatsApp Number' },
-  email:   { show: false, required: false, label: 'Your Email Address To Get Receipt' },
+  email:   { show: true,  required: false, label: 'Your Email Address To Get Receipt' },
   address: { show: true,  required: true,  label: 'Your Full Address' },
   state:   { show: true,  required: true,  label: 'Your Delivery State' },
   age:     { show: false, required: false, label: 'Your Age' },
@@ -277,7 +277,7 @@ function FormModal({ form, onClose }) {
   const setField = (key, prop, val) => setFields(f => ({ ...f, [key]: { ...f[key], [prop]: val } }));
 
   const addCustomField = () => {
-    setCustomFields(cf => [...cf, { id: `cf_${Date.now()}`, label: '', required: false, fieldType: 'text' }]);
+    setCustomFields(cf => [...cf, { id: `cf_${Date.now()}`, label: '', required: false, type: 'text' }]);
   };
   const updateCF = (id, key, val) => setCustomFields(cf => cf.map(f => f.id === id ? { ...f, [key]: val } : f));
   const removeCF = (id) => setCustomFields(cf => cf.filter(f => f.id !== id));
@@ -438,7 +438,7 @@ function FormModal({ form, onClose }) {
                         <input value={cf.label} onChange={e => updateCF(cf.id, 'label', e.target.value)}
                           placeholder="Field label (e.g. Nearest Bus Stop)"
                           className="flex-1 border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/30" />
-                        <select value={cf.fieldType} onChange={e => updateCF(cf.id, 'fieldType', e.target.value)}
+                        <select value={cf.type} onChange={e => updateCF(cf.id, 'type', e.target.value)}
                           className="border rounded-lg px-2 py-1.5 text-xs focus:outline-none bg-white">
                           <option value="text">Text</option>
                           <option value="number">Number</option>

@@ -7,10 +7,9 @@ import { ORDER_STATUSES } from '@/lib/constants';
 import { formatNGN, formatDate } from '@/lib/utils';
 import OrderStatusBadge from '@/components/shared/OrderStatusBadge';
 import PhoneLink from '@/components/shared/PhoneLink';
+import CalendarPicker from '@/components/shared/CalendarPicker';
 import { ArrowLeft, Clock, MessageCircle, Loader2, Trash2, Truck } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
-
-const NEEDS_AGENT = ['DELIVERED', 'FAILED'];
 
 export default function OrderDetail() {
   const { id } = useParams();
@@ -21,6 +20,7 @@ export default function OrderDetail() {
   const [note, setNote] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
   const [deliveryAgentId, setDeliveryAgentId] = useState('');
+  const [reminder, setReminder] = useState({ enabled: false, offset: 1440 });
 
   const { data: order, isLoading, error } = useQuery({
     queryKey: ['order', id],
@@ -35,14 +35,17 @@ export default function OrderDetail() {
 
   const statusMutation = useMutation({
     mutationFn: async () => {
-      if (deliveryAgentId && NEEDS_AGENT.includes(newStatus)) {
+      if (deliveryAgentId) {
         await ordersApi.update(id, { agentId: deliveryAgentId });
       }
       const agentName = agents.find(a => a.id === deliveryAgentId)?.name;
       const fullNote = agentName
-        ? `Agent: ${agentName}${note ? '\n' + note : ''}`
+        ? `Delivery Agent: ${agentName}${note ? '\n' + note : ''}`
         : (note || undefined);
-      return ordersApi.changeStatus(id, newStatus, fullNote, scheduledDate || undefined);
+      return ordersApi.changeStatus(
+        id, newStatus, fullNote, scheduledDate || undefined,
+        reminder.enabled, reminder.offset,
+      );
     },
     onSuccess: () => {
       qc.invalidateQueries(['order', id]);
@@ -51,6 +54,7 @@ export default function OrderDetail() {
       setNote('');
       setScheduledDate('');
       setDeliveryAgentId('');
+      setReminder({ enabled: false, offset: 1440 });
     },
   });
 
@@ -77,7 +81,6 @@ export default function OrderDetail() {
 
   return (
     <div className="space-y-5 max-w-5xl">
-      {/* Back + header */}
       <div className="flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="p-1.5 rounded hover:bg-gray-100 text-gray-500">
           <ArrowLeft size={18} />
@@ -93,7 +96,6 @@ export default function OrderDetail() {
               onClick={() => { if (window.confirm('Permanently delete this order? This cannot be undone.')) deleteMutation.mutate(); }}
               disabled={deleteMutation.isPending}
               className="p-1.5 rounded hover:bg-red-50 text-red-500 disabled:opacity-50"
-              title="Delete order permanently"
             >
               {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
             </button>
@@ -102,9 +104,7 @@ export default function OrderDetail() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Left column */}
         <div className="lg:col-span-2 space-y-5">
-          {/* Customer info */}
           <div className="bg-white rounded-xl border p-5">
             <h3 className="text-sm font-semibold text-gray-700 mb-4">Customer Information</h3>
             <div className="grid grid-cols-2 gap-4 text-sm">
@@ -118,7 +118,6 @@ export default function OrderDetail() {
             </div>
           </div>
 
-          {/* Order items */}
           <div className="bg-white rounded-xl border p-5">
             <h3 className="text-sm font-semibold text-gray-700 mb-4">Order Items</h3>
             {items.length === 0 ? (
@@ -147,15 +146,13 @@ export default function OrderDetail() {
             )}
             <div className="border-t mt-3 pt-3 space-y-1 text-sm text-right">
               <div className="flex justify-between"><span className="text-gray-500">Total Amount</span><span className="font-semibold">{formatNGN(order.totalAmount)}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">Delivery Fee</span><span>{formatNGN(order.deliveryFee)}</span></div>
             </div>
           </div>
 
-          {/* Status history */}
           <div className="bg-white rounded-xl border p-5">
             <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2"><Clock size={15} /> Status History</h3>
             <div className="space-y-3">
-              {history.map((h, i) => (
+              {history.map((h) => (
                 <div key={h.id} className="flex items-start gap-3">
                   <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
                   <div>
@@ -171,7 +168,6 @@ export default function OrderDetail() {
             </div>
           </div>
 
-          {/* WhatsApp logs */}
           {waLogs.length > 0 && (
             <div className="bg-white rounded-xl border p-5">
               <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2"><MessageCircle size={15} className="text-green-600" /> WhatsApp Messages</h3>
@@ -190,45 +186,47 @@ export default function OrderDetail() {
           )}
         </div>
 
-        {/* Right column */}
         <div className="space-y-5">
-          {/* Change status */}
           <div className="bg-white rounded-xl border p-5">
             <h3 className="text-sm font-semibold text-gray-700 mb-4">Change Status</h3>
-            <select value={newStatus} onChange={e => setNewStatus(e.target.value)}
+            <select value={newStatus} onChange={e => { setNewStatus(e.target.value); setScheduledDate(''); setReminder({ enabled: false, offset: 1440 }); }}
               className="w-full border rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary/30">
               <option value="">Select new status...</option>
               {ORDER_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
+
             {newStatus === 'SCHEDULED' && (
-              <div className="mb-3">
-                <label className="block text-xs font-medium text-gray-600 mb-1">Delivery Date & Time *</label>
-                <input type="datetime-local" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              <div className="mb-3 border rounded-xl p-3 bg-gray-50">
+                <CalendarPicker
+                  value={scheduledDate}
+                  onChange={setScheduledDate}
+                  reminderEnabled={reminder.enabled}
+                  reminderOffset={reminder.offset}
+                  onReminderChange={({ enabled, offset }) => setReminder({ enabled, offset })}
+                  showReminder={true}
+                />
               </div>
             )}
-            {NEEDS_AGENT.includes(newStatus) && (
+
+            {(newStatus === 'DELIVERED' || newStatus === 'FAILED') && (
               <div className="mb-3">
                 <label className="block text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1.5">
                   <Truck size={12} />
-                  {newStatus === 'DELIVERED' ? 'Who delivered this order?' : 'Which agent attempted delivery?'}
-                  <span className="text-gray-400 font-normal">(required)</span>
+                  {newStatus === 'DELIVERED' ? 'Who delivered this order?' : 'Which delivery agent attempted delivery?'}
+                  <span className="text-gray-400 font-normal">(optional)</span>
                 </label>
-                {agents.length === 0 ? (
-                  <p className="text-xs text-gray-400 italic">No agents found</p>
-                ) : (
+                {agents.length > 0 && (
                   <div className="space-y-1.5 max-h-40 overflow-y-auto border rounded-xl p-2 bg-gray-50">
+                    <label className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition ${deliveryAgentId === '' ? 'bg-primary/10 border border-primary/30' : 'hover:bg-white border border-transparent'}`}>
+                      <input type="radio" name="deliveryAgent" value="" checked={deliveryAgentId === ''} onChange={() => setDeliveryAgentId('')} className="accent-primary shrink-0" />
+                      <span className="text-sm text-gray-500 italic">No agent</span>
+                    </label>
                     {agents.map(agent => (
                       <label key={agent.id} className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition ${deliveryAgentId === agent.id ? 'bg-primary/10 border border-primary/30' : 'hover:bg-white border border-transparent'}`}>
-                        <input type="radio" name="deliveryAgent" value={agent.id}
-                          checked={deliveryAgentId === agent.id}
-                          onChange={() => setDeliveryAgentId(agent.id)}
-                          className="accent-primary shrink-0" />
+                        <input type="radio" name="deliveryAgent" value={agent.id} checked={deliveryAgentId === agent.id} onChange={() => setDeliveryAgentId(agent.id)} className="accent-primary shrink-0" />
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-gray-800">{agent.name}</p>
-                          {agent.states?.length > 0 && (
-                            <p className="text-[10px] text-gray-400 truncate">{agent.states.join(', ')}</p>
-                          )}
+                          {agent.states?.length > 0 && <p className="text-[10px] text-gray-400 truncate">{agent.states.join(', ')}</p>}
                         </div>
                       </label>
                     ))}
@@ -236,29 +234,34 @@ export default function OrderDetail() {
                 )}
               </div>
             )}
+
             <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Note (optional)" rows={2}
               className="w-full border rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary/30" />
-            <button onClick={() => statusMutation.mutate()}
-              disabled={
-                !newStatus || statusMutation.isPending ||
-                (newStatus === 'SCHEDULED' && !scheduledDate) ||
-                (NEEDS_AGENT.includes(newStatus) && !deliveryAgentId)
-              }
+            <button
+              onClick={() => statusMutation.mutate()}
+              disabled={!newStatus || statusMutation.isPending || (newStatus === 'SCHEDULED' && !scheduledDate)}
               className="w-full bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
               {statusMutation.isPending && <Loader2 size={14} className="animate-spin" />}
               Update Status
             </button>
           </div>
 
-          {/* Order details */}
           <div className="bg-white rounded-xl border p-5 text-sm space-y-3">
             <h3 className="font-semibold text-gray-700">Order Details</h3>
             <div className="flex justify-between"><span className="text-gray-500">Source</span><span className="capitalize">{order.source}</span></div>
             <div className="flex justify-between"><span className="text-gray-500">Payment</span><span className="capitalize">{order.paymentStatus?.toLowerCase()}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">Agent</span><span>{order.agent?.name ?? '—'}</span></div>
+            <div className="flex justify-between"><span className="text-gray-500">Delivery Agent</span><span>{order.agent?.name ?? '—'}</span></div>
             <div className="flex justify-between"><span className="text-gray-500">Staff</span><span>{order.assignedStaff?.name ?? '—'}</span></div>
             {order.scheduledDate && (
               <div className="flex justify-between"><span className="text-gray-500">Scheduled For</span><span className="font-medium text-blue-700">{formatDate(order.scheduledDate)}</span></div>
+            )}
+            {order.reminderEnabled && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">WA Reminder</span>
+                <span className={`font-medium text-xs ${order.reminderSentAt ? 'text-green-600' : 'text-orange-500'}`}>
+                  {order.reminderSentAt ? `Sent ${formatDate(order.reminderSentAt)}` : 'Pending'}
+                </span>
+              </div>
             )}
             {order.notes && <div><span className="text-gray-500 block">Notes</span><p className="mt-0.5 text-gray-700">{order.notes}</p></div>}
             {order.comment && <div><span className="text-gray-500 block">Comment</span><p className="mt-0.5 text-gray-700">{order.comment}</p></div>}

@@ -3,13 +3,12 @@ import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { useUiStore } from '@/stores/uiStore';
 import {
-  LayoutDashboard, Users, Tag, Package, FileText, Truck,
-  CalendarClock, ClipboardList, ShoppingCart, MessageCircle,
+  LayoutDashboard, Users, Package, FileText, Truck,
+  CalendarCheck, ShoppingCart, MessageCircle,
   Phone, ScrollText, Radio, Zap, Settings, LogOut,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, ClipboardList,
 } from 'lucide-react';
 
-// roles that can access each item (empty = everyone)
 const NAV_SECTIONS = [
   {
     label: 'Main',
@@ -21,23 +20,21 @@ const NAV_SECTIONS = [
     label: 'Operations',
     items: [
       { to: '/orders', icon: ClipboardList, label: 'Orders' },
-      { to: '/deliveries-today', icon: Truck, label: "Today's Deliveries" },
-      { to: '/followups-today', icon: CalendarClock, label: "Today's Follow-ups" },
+      { to: '/today', icon: CalendarCheck, label: "Today's Schedule" },
       { to: '/abandoned-carts', icon: ShoppingCart, label: 'Abandoned Carts' },
     ],
   },
   {
     label: 'Catalogue',
     items: [
-      { to: '/products', icon: Package, label: 'Products' },
-      { to: '/product-categories', icon: Tag, label: 'Categories', roles: ['ADMIN', 'SUPERVISOR'] },
+      { to: '/products', icon: Package, label: 'Catalogue' },
     ],
   },
   {
     label: 'People',
     items: [
       { to: '/users', icon: Users, label: 'Users & Staff', roles: ['ADMIN', 'SUPERVISOR'] },
-      { to: '/agents', icon: Truck, label: 'Agents', roles: ['ADMIN', 'SUPERVISOR', 'STAFF'] },
+      { to: '/agents', icon: Truck, label: 'Delivery Agents', roles: ['ADMIN', 'SUPERVISOR', 'STAFF'] },
     ],
   },
   {
@@ -81,7 +78,6 @@ export default function Sidebar() {
         collapsed ? 'w-16' : 'w-60'
       )}
     >
-      {/* Logo */}
       <div className="flex items-center h-14 px-4 border-b border-sidebar-border shrink-0">
         {!collapsed && (
           <span className="text-sm font-bold text-white truncate">E-Commerce CRM</span>
@@ -94,7 +90,6 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-2 scrollbar-thin">
         {NAV_SECTIONS.map((section) => {
           const visibleItems = section.items.filter(item =>
@@ -102,36 +97,35 @@ export default function Sidebar() {
           );
           if (visibleItems.length === 0) return null;
           return (
-          <div key={section.label} className="mb-1">
-            {!collapsed && (
-              <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
-                {section.label}
-              </p>
-            )}
-            {visibleItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.exact}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-3 px-4 py-2 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground',
-                    isActive
-                      ? 'bg-sidebar-accent text-sidebar-foreground font-medium'
-                      : 'text-sidebar-foreground/70'
-                  )
-                }
-              >
-                <item.icon size={16} className="shrink-0" />
-                {!collapsed && <span className="truncate">{item.label}</span>}
-              </NavLink>
-            ))}
-          </div>
+            <div key={section.label} className="mb-1">
+              {!collapsed && (
+                <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
+                  {section.label}
+                </p>
+              )}
+              {visibleItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.exact}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-3 px-4 py-2 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground',
+                      isActive
+                        ? 'bg-sidebar-accent text-sidebar-foreground font-medium'
+                        : 'text-sidebar-foreground/70'
+                    )
+                  }
+                >
+                  <item.icon size={16} className="shrink-0" />
+                  {!collapsed && <span className="truncate">{item.label}</span>}
+                </NavLink>
+              ))}
+            </div>
           );
         })}
       </nav>
 
-      {/* User + Logout */}
       <div className="border-t border-sidebar-border p-3 shrink-0">
         {!collapsed && user && (
           <div className="mb-2 px-1">

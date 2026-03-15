@@ -16,12 +16,8 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'https://75.119.151.40',
+        target: 'http://localhost:3001',
         changeOrigin: true,
-        secure: false,
-        headers: {
-          Host: 'crm-api.hulliz.com',
-        },
       },
     },
   },

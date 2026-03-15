@@ -46,12 +46,12 @@ function AgentModal({ agent, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b sticky top-0 bg-white">
-          <h3 className="font-semibold">{agent ? 'Edit Agent' : 'Add Agent'}</h3>
+          <h3 className="font-semibold">{agent ? 'Edit Delivery Agent' : 'Add Delivery Agent'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
         </div>
         <div className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            {inp('name', 'Agent Name', true)}
+            {inp('name', 'Delivery Agent Name', true)}
             {inp('companyName', 'Company Name')}
             {inp('phone', 'Phone')}
             {inp('phone2', 'Phone 2')}
@@ -79,7 +79,7 @@ function AgentModal({ agent, onClose }) {
             <button onClick={() => mutation.mutate(form)} disabled={mutation.isPending || !form.name}
               className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium disabled:opacity-60 flex items-center justify-center gap-2">
               {mutation.isPending && <Loader2 size={13} className="animate-spin" />}
-              {agent ? 'Save Changes' : 'Add Agent'}
+              {agent ? 'Save Changes' : 'Add Delivery Agent'}
             </button>
           </div>
         </div>
@@ -104,8 +104,8 @@ export default function Agents() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-800">Agents</h2>
-          <p className="text-sm text-gray-500">{agents.length} agents</p>
+          <h2 className="text-lg font-semibold text-gray-800">Delivery Agents</h2>
+          <p className="text-sm text-gray-500">{agents.length} delivery agents</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={async () => {
@@ -120,7 +120,7 @@ export default function Agents() {
           </button>
           <button onClick={() => setShowAdd(true)}
             className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90">
-            <Plus size={15} /> Add Agent
+            <Plus size={15} /> Add Delivery Agent
           </button>
         </div>
       </div>
@@ -130,7 +130,7 @@ export default function Agents() {
       ) : agents.length === 0 ? (
         <div className="bg-white rounded-xl border p-12 text-center">
           <Users size={32} className="mx-auto text-gray-300 mb-3" />
-          <p className="text-gray-500 font-medium">No agents yet</p>
+          <p className="text-gray-500 font-medium">No delivery agents yet</p>
         </div>
       ) : (
         <div className="bg-white rounded-xl border overflow-hidden">
@@ -160,7 +160,7 @@ export default function Agents() {
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
                       <button onClick={() => setEditAgent(a)} className="p-1 text-gray-400 hover:text-gray-700"><Pencil size={14} /></button>
-                      <button onClick={() => { if(confirm('Deactivate agent?')) deleteMutation.mutate(a.id); }}
+                      <button onClick={() => { if(confirm('Deactivate delivery agent?')) deleteMutation.mutate(a.id); }}
                         className="p-1 text-gray-400 hover:text-red-500"><Trash2 size={14} /></button>
                     </div>
                   </td>

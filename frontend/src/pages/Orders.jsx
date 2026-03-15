@@ -2,11 +2,13 @@ import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ordersApi } from '@/api/orders.api';
+import client from '@/api/client';
 import { ORDER_STATUSES, NIGERIA_STATES } from '@/lib/constants';
 import { formatNGN, formatDate, downloadBlob } from '@/lib/utils';
 import OrderStatusBadge from '@/components/shared/OrderStatusBadge';
 import PhoneLink from '@/components/shared/PhoneLink';
 import EmptyState from '@/components/shared/EmptyState';
+import CalendarPicker from '@/components/shared/CalendarPicker';
 import { Search, Filter, RefreshCw, ChevronDown, CheckSquare, Loader2, X, Plus, FileDown, Upload } from 'lucide-react';
 
 function StateDropdown({ value, onChange }) {
@@ -21,7 +23,6 @@ function StateDropdown({ value, onChange }) {
   }, []);
 
   const filtered = NIGERIA_STATES.filter(s => s.toLowerCase().includes(search.toLowerCase()));
-
   const select = (state) => { onChange(state); setOpen(false); setSearch(''); };
 
   return (
@@ -95,7 +96,7 @@ function AddOrderModal({ onClose }) {
   const qc = useQueryClient();
   const [form, setForm] = useState({
     customerName: '', customerPhone: '', customerPhone2: '', address: '',
-    state: '', city: '', totalAmount: '', deliveryFee: '', notes: '', comment: '',
+    state: '', city: '', totalAmount: '', notes: '', comment: '',
   });
   const [error, setError] = useState('');
 
@@ -137,7 +138,6 @@ function AddOrderModal({ onClose }) {
             </div>
             {inp('city', 'City')}
             {inp('totalAmount', 'Total Amount (NGN)', 'number', true)}
-            {inp('deliveryFee', 'Delivery Fee (NGN)', 'number')}
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Address *</label>
@@ -172,9 +172,24 @@ export default function Orders() {
   const [page, setPage] = useState(1);
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
+
+  // Schedule modal state
   const [scheduleModal, setScheduleModal] = useState(false);
   const [scheduledDate, setScheduledDate] = useState('');
+  const [scheduleReminder, setScheduleReminder] = useState({ enabled: false, offset: 1440 });
+
+  // Delivered modal state
+  const [deliveredModal, setDeliveredModal] = useState(false);
+  const [bulkAgentId, setBulkAgentId] = useState('');
+
   const importRef = useRef(null);
+
+  const { data: agentsData } = useQuery({
+    queryKey: ['agents-list'],
+    queryFn: () => client.get('/agents', { params: { limit: 200 } }).then(r => r.data),
+    staleTime: 60000,
+  });
+  const agents = agentsData?.data ?? agentsData ?? [];
 
   const params = { status: activeTab || undefined, search: search || undefined, state: stateFilter || undefined, page, limit: 50 };
 
@@ -197,15 +212,29 @@ export default function Orders() {
 
   const toggleAll = () => setSelectedIds(selectedIds.length === orders.length ? [] : orders.map(o => o.id));
 
-  const executeBulk = (overrideScheduledDate) => {
+  const executeBulk = (overrideScheduledDate, overrideAgentId, overrideReminder) => {
     if (!bulkAction || selectedIds.length === 0) return;
     if (bulkAction === 'status:SCHEDULED' && !overrideScheduledDate) {
       setScheduleModal(true);
       return;
     }
+    if ((bulkAction === 'status:DELIVERED' || bulkAction === 'status:FAILED') && overrideAgentId === undefined) {
+      setDeliveredModal(true);
+      return;
+    }
     if (bulkAction.startsWith('status:')) {
       const status = bulkAction.split(':')[1];
-      bulkMutation.mutate({ action: 'status', payload: { status, scheduledDate: overrideScheduledDate || undefined } });
+      const reminder = overrideReminder ?? scheduleReminder;
+      bulkMutation.mutate({
+        action: 'status',
+        payload: {
+          status,
+          scheduledDate: overrideScheduledDate || undefined,
+          agentId: overrideAgentId || undefined,
+          reminderEnabled: reminder.enabled,
+          reminderOffset: reminder.offset,
+        },
+      });
     } else {
       bulkMutation.mutate({ action: bulkAction, payload: {} });
     }
@@ -257,7 +286,7 @@ export default function Orders() {
       </div>
 
       {/* Status tabs */}
-      <div className="flex gap-1 overflow-x-auto pb-1">
+      <div className="flex gap-1 overflow-x-auto pb-1 overscroll-x-contain">
         {STATUS_TABS.map(tab => (
           <button key={tab.value} onClick={() => { setActiveTab(tab.value); setPage(1); setSelectedIds([]); }}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
@@ -291,7 +320,7 @@ export default function Orders() {
             <option value="">Choose action...</option>
             {BULK_ACTIONS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
           </select>
-          <button onClick={executeBulk} disabled={!bulkAction || bulkMutation.isPending}
+          <button onClick={() => executeBulk()} disabled={!bulkAction || bulkMutation.isPending}
             className="flex items-center gap-1.5 bg-primary text-white px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-60">
             {bulkMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <CheckSquare size={13} />}
             Apply
@@ -316,7 +345,7 @@ export default function Orders() {
                 <th className="text-left px-4 py-3">State</th>
                 <th className="text-left px-4 py-3">Amount</th>
                 <th className="text-left px-4 py-3">Status</th>
-                <th className="text-left px-4 py-3">Agent</th>
+                <th className="text-left px-4 py-3">Delivery Agent</th>
                 <th className="text-left px-4 py-3">Date</th>
               </tr>
             </thead>
@@ -368,20 +397,72 @@ export default function Orders() {
 
       {showAddModal && <AddOrderModal onClose={() => setShowAddModal(false)} />}
 
+      {/* Schedule Modal — calendar + reminder */}
       {scheduleModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900">Schedule Delivery</h3>
+              <button onClick={() => { setScheduleModal(false); setScheduledDate(''); setScheduleReminder({ enabled: false, offset: 1440 }); }}
+                className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
+            </div>
+            <CalendarPicker
+              value={scheduledDate}
+              onChange={setScheduledDate}
+              reminderEnabled={scheduleReminder.enabled}
+              reminderOffset={scheduleReminder.offset}
+              onReminderChange={({ enabled, offset }) => setScheduleReminder({ enabled, offset })}
+              showReminder={true}
+            />
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => { setScheduleModal(false); setScheduledDate(''); setScheduleReminder({ enabled: false, offset: 1440 }); }}
+                className="flex-1 border rounded-lg py-2 text-sm hover:bg-gray-50">Cancel</button>
+              <button
+                disabled={!scheduledDate}
+                onClick={() => {
+                  setScheduleModal(false);
+                  executeBulk(scheduledDate, undefined, scheduleReminder);
+                  setScheduledDate('');
+                  setScheduleReminder({ enabled: false, offset: 1440 });
+                }}
+                className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium disabled:opacity-60">
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delivered / Agent modal */}
+      {deliveredModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4">
-            <h3 className="font-semibold text-gray-900">Set Scheduled Delivery Date</h3>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Date & Time *</label>
-              <input type="datetime-local" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+            <h3 className="font-semibold text-gray-900">
+              {bulkAction === 'status:DELIVERED' ? 'Who delivered these orders?' : 'Assign delivery agent'}
+            </h3>
+            <p className="text-xs text-gray-500">{selectedIds.length} order{selectedIds.length !== 1 ? 's' : ''} selected</p>
+            <div className="max-h-64 overflow-y-auto border rounded-lg divide-y">
+              <label className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50">
+                <input type="radio" name="bulk-agent" value="" checked={bulkAgentId === ''}
+                  onChange={() => setBulkAgentId('')} className="accent-primary" />
+                <span className="text-sm text-gray-500 italic">No delivery agent / skip</span>
+              </label>
+              {agents.map(agent => (
+                <label key={agent.id} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50">
+                  <input type="radio" name="bulk-agent" value={agent.id} checked={bulkAgentId === agent.id}
+                    onChange={() => setBulkAgentId(agent.id)} className="accent-primary" />
+                  <span className="text-sm text-gray-800">{agent.name}</span>
+                </label>
+              ))}
+              {agents.length === 0 && (
+                <p className="text-xs text-gray-400 px-3 py-3">No delivery agents found</p>
+              )}
             </div>
             <div className="flex gap-3">
-              <button onClick={() => { setScheduleModal(false); setScheduledDate(''); }}
+              <button onClick={() => { setDeliveredModal(false); setBulkAgentId(''); }}
                 className="flex-1 border rounded-lg py-2 text-sm hover:bg-gray-50">Cancel</button>
-              <button disabled={!scheduledDate} onClick={() => { setScheduleModal(false); executeBulk(scheduledDate); setScheduledDate(''); }}
-                className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium disabled:opacity-60">
+              <button onClick={() => { setDeliveredModal(false); executeBulk(undefined, bulkAgentId || null); setBulkAgentId(''); }}
+                className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium">
                 Confirm
               </button>
             </div>

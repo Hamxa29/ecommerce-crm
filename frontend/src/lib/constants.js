@@ -14,6 +14,7 @@ export const ORDER_STATUSES = [
   { value: 'SHIPPED', label: 'Shipped', color: 'bg-indigo-100 text-indigo-800' },
   { value: 'OPEN_RECORD', label: 'Open Record', color: 'bg-teal-100 text-teal-800' },
   { value: 'CUSTOM', label: 'Custom', color: 'bg-pink-100 text-pink-800' },
+  { value: 'ABANDONED_CART', label: 'Abandoned Cart', color: 'bg-amber-100 text-amber-800' },
 ];
 
 export const USER_ROLES = [
@@ -34,14 +35,15 @@ export const NIGERIA_STATES = [
 ];
 
 export const TEMPLATE_VARIABLES = [
-  { key: '[customername]', label: 'Customer Name' },
-  { key: '[customerphone]', label: 'Customer Phone' },
-  { key: '[productname]', label: 'Product Name' },
-  { key: '[productprice]', label: 'Product Price' },
-  { key: '[ordernumber]', label: 'Order Number' },
-  { key: '[brandphone]', label: 'Brand Phone' },
-  { key: '[brandname]', label: 'Brand Name' },
-  { key: '[individualname]', label: 'Staff Name' },
-  { key: '[individual_state]', label: 'State' },
-  { key: '[customername_state]', label: 'Name + State' },
+  { key: '{{customername}}', label: 'Customer Name' },
+  { key: '{{customerphone}}', label: 'Customer Phone' },
+  { key: '{{productname}}', label: 'Product Name' },
+  { key: '{{productprice}}', label: 'Product Price' },
+  { key: '{{ordernumber}}', label: 'Order Number' },
+  { key: '{{brandphone}}', label: 'Brand Phone' },
+  { key: '{{brandname}}', label: 'Brand Name' },
+  { key: '{{individualname}}', label: 'Staff Name' },
+  { key: '{{individual_state}}', label: 'State' },
+  { key: '{{customername_state}}', label: 'Name + State' },
+  { key: '{{formlink}}', label: 'Form Link' },
 ];

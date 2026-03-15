@@ -5,7 +5,8 @@ import nodemailer from 'nodemailer';
 export function createTransporter() {
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT ?? 587);
-  const user = process.env.SMTP_USER;
+  // SMTP_USER can be omitted if SMTP_FROM is set (they're typically the same Gmail address)
+  const user = process.env.SMTP_USER || process.env.SMTP_FROM;
   const pass = process.env.SMTP_PASS;
 
   if (!host || !user || !pass) {

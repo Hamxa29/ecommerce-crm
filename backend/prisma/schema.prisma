@@ -31,6 +31,7 @@ model User {
   salary       Decimal?  @db.Decimal(12, 2)
   bonus        Decimal?  @db.Decimal(12, 2)
   commission   Decimal?  @db.Decimal(5, 2)
+  whatsappPhone String?
   bannedIps    String[]  @default([])
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -121,6 +122,7 @@ enum OrderStatus {
   SHIPPED
   OPEN_RECORD
   CUSTOM
+  ABANDONED_CART
 }
 
 enum PaymentStatus {
@@ -155,6 +157,10 @@ model Order {
   scheduledDate   DateTime?
   deliveryDate    DateTime?
   followUpDate    DateTime?
+  reminderEnabled       Boolean   @default(false)
+  reminderOffset        Int       @default(1440)
+  reminderSentAt        DateTime?
+  pendingReminderSentAt DateTime?
   agentId         String?
   agent           Agent?        @relation(fields: [agentId], references: [id])
   assignedStaffId String?
@@ -357,8 +363,19 @@ model StoreSettings {
   // Notification settings
   notifyLowStock        Boolean  @default(false)
   notifyScheduledOrders Boolean  @default(false)
+  agentDigestEnabled    Boolean  @default(false)
+  agentDigestHour       Int      @default(6)
+  agentDigestDelayMin   Int      @default(2)
   sendCustomerInvoiceWa Boolean  @default(false)
   orderNotificationEmails String? // comma-separated emails to notify on new orders
+
+  // Pending order automation
+  pendingReminderEnabled   Boolean @default(false)
+  pendingReminderDays      Int     @default(3)
+  pendingReminderAccountId String?
+  pendingReminderMessage   String?
+  pendingAutoDeleteEnabled Boolean @default(false)
+  pendingAutoDeleteDays    Int     @default(30)
 
   updatedAt             DateTime @updatedAt
 

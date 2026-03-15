@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import client from '@/api/client';
 import { TEMPLATE_VARIABLES } from '@/lib/constants';
-import { Plus, Pencil, Trash2, Loader2, X, Copy } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, X, Copy, ChevronDown, ChevronUp, Zap } from 'lucide-react';
 
 const api = {
   list:    (accountId) => client.get('/whatsapp/templates', { params: accountId ? { accountId } : {} }).then(r => r.data),
@@ -21,13 +21,125 @@ const MESSAGE_TYPES = [
   { value: 'custom', label: 'Custom' },
 ];
 
-function TemplateModal({ template, accounts, onClose }) {
+export const STARTER_TEMPLATES = [
+  {
+    name: 'Abandoned Cart Recovery',
+    messageType: 'cart_abandonment',
+    content: `Hello {{customername}}! 👋
+
+We noticed you were checking out *{{productname}}* but didn't complete your order.
+
+We'd love to help you get started! Here's the link to complete your order:
+{{formlink}}
+
+If you have any questions, feel free to reply. 😊
+
+— {{brandname}}`,
+  },
+  {
+    name: 'Order Confirmed',
+    messageType: 'confirmed',
+    content: `Hello {{customername}}! 🎉
+
+Your order has been *confirmed*! Here are your details:
+
+📦 *Order:* {{ordernumber}}
+🛍️ *Product:* {{productname}}
+💰 *Amount:* {{productprice}}
+
+Our team will be in touch regarding delivery.
+
+Thank you for choosing *{{brandname}}*! 🙏`,
+  },
+  {
+    name: 'Not Picking Calls Follow-Up',
+    messageType: 'follow_up',
+    content: `Hello {{customername}},
+
+We tried reaching you regarding your order *{{ordernumber}}* but couldn't get through.
+
+Please reply to this message or give us a call at your earliest convenience.
+
+📞 {{brandphone}}
+
+— {{brandname}}`,
+  },
+  {
+    name: 'Order Delivered',
+    messageType: 'delivery',
+    content: `Hello {{customername}}! ✅
+
+Your order *{{ordernumber}}* has been successfully *delivered*! 🎉
+
+We hope you love your purchase. For any feedback or concerns:
+📞 {{brandphone}}
+
+Thank you for shopping with *{{brandname}}*! 🙏`,
+  },
+  {
+    name: 'Delivery Scheduled',
+    messageType: 'delivery',
+    content: `Hello {{customername}}! 🚚
+
+Great news! Your order *{{ordernumber}}* has been *scheduled for delivery* to you in {{individual_state}}.
+
+Our delivery agent will contact you on arrival.
+
+For questions: 📞 {{brandphone}}
+
+— {{brandname}}`,
+  },
+  {
+    name: 'New Order Received',
+    messageType: 'new_order',
+    content: `Hello {{customername}}! 👋
+
+Thank you for your order with *{{brandname}}*!
+
+📦 *Order Details:*
+• Order #: {{ordernumber}}
+• Product: {{productname}}
+• Amount: {{productprice}}
+
+Our team will review and get back to you shortly.
+📞 {{brandphone}}`,
+  },
+  {
+    name: 'Commitment Fee Request',
+    messageType: 'custom',
+    content: `Hello {{customername}},
+
+To confirm your order *{{ordernumber}}* and secure your delivery, a small commitment fee is required.
+
+Please contact us to proceed:
+📞 {{brandphone}}
+
+— {{brandname}}`,
+  },
+  {
+    name: 'Win Back / Re-engagement',
+    messageType: 'custom',
+    content: `Hello {{customername_state}}! 👋
+
+We miss you! We noticed your order hasn't been completed yet.
+
+We're still here and ready to help. Feel free to reach out:
+📞 {{brandphone}}
+
+Or complete your order here:
+{{formlink}}
+
+— {{brandname}}`,
+  },
+];
+
+function TemplateModal({ template, accounts, prefill, onClose }) {
   const qc = useQueryClient();
   const [form, setForm] = useState({
-    accountId: template?.accountId ?? (accounts[0]?.id ?? ''),
-    name: template?.name ?? '',
-    messageType: template?.messageType ?? 'custom',
-    content: template?.content ?? '',
+    accountId: template?.accountId ?? prefill?.accountId ?? (accounts[0]?.id ?? ''),
+    name: template?.name ?? prefill?.name ?? '',
+    messageType: template?.messageType ?? prefill?.messageType ?? 'custom',
+    content: template?.content ?? prefill?.content ?? '',
     mediaUrl: template?.mediaUrl ?? '',
     mediaType: template?.mediaType ?? 'image',
   });
@@ -70,7 +182,7 @@ function TemplateModal({ template, accounts, onClose }) {
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Template Name *</label>
             <input value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))}
-              placeholder="e.g. New Order Confirmation"
+              placeholder="e.g. Abandoned Cart Recovery"
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
           </div>
           <div>
@@ -79,8 +191,8 @@ function TemplateModal({ template, accounts, onClose }) {
               <span className="text-xs text-gray-400">{form.content.length} chars</span>
             </div>
             <textarea value={form.content} onChange={e => setForm(f => ({...f, content: e.target.value}))}
-              rows={5} placeholder="Type your message..."
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none" />
+              rows={6} placeholder="Type your message..."
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none font-mono" />
             <div className="flex flex-wrap gap-1 mt-2">
               {TEMPLATE_VARIABLES.map(v => (
                 <button key={v.key} onClick={() => insertVar(v.key)}
@@ -126,6 +238,8 @@ export default function WaTemplates() {
   const qc = useQueryClient();
   const [editTemplate, setEditTemplate] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [prefill, setPrefill] = useState(null);
+  const [showStarters, setShowStarters] = useState(false);
 
   const { data: templates = [], isLoading } = useQuery({ queryKey: ['wa-templates'], queryFn: () => api.list() });
   const { data: accounts = [] } = useQuery({ queryKey: ['wa-accounts'], queryFn: api.listAccounts });
@@ -136,6 +250,13 @@ export default function WaTemplates() {
   });
 
   const accountMap = Object.fromEntries(accounts.map(a => [a.id, a.displayName || a.instanceName]));
+  const typeLabel = (v) => MESSAGE_TYPES.find(t => t.value === v)?.label ?? v;
+
+  const useStarter = (starter) => {
+    setPrefill(starter);
+    setShowAdd(true);
+    setShowStarters(false);
+  };
 
   return (
     <div className="space-y-5">
@@ -144,7 +265,7 @@ export default function WaTemplates() {
           <h2 className="text-lg font-semibold text-gray-800">WhatsApp Templates</h2>
           <p className="text-sm text-gray-500">{templates.length} templates</p>
         </div>
-        <button onClick={() => setShowAdd(true)} disabled={accounts.length === 0}
+        <button onClick={() => { setPrefill(null); setShowAdd(true); }} disabled={accounts.length === 0}
           className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50">
           <Plus size={15} /> New Template
         </button>
@@ -156,6 +277,39 @@ export default function WaTemplates() {
         </div>
       )}
 
+      {/* Starter Templates */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl overflow-hidden">
+        <button onClick={() => setShowStarters(s => !s)}
+          className="w-full flex items-center justify-between px-5 py-3 text-left">
+          <div className="flex items-center gap-2">
+            <Zap size={15} className="text-blue-600" />
+            <span className="text-sm font-semibold text-blue-800">Starter Templates</span>
+            <span className="text-xs text-blue-500 bg-blue-100 px-1.5 py-0.5 rounded-full">{STARTER_TEMPLATES.length} ready to use</span>
+          </div>
+          {showStarters ? <ChevronUp size={15} className="text-blue-500" /> : <ChevronDown size={15} className="text-blue-500" />}
+        </button>
+        {showStarters && (
+          <div className="border-t border-blue-200 grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-white">
+            {STARTER_TEMPLATES.map((s, i) => (
+              <div key={i} className="border rounded-xl p-4 hover:border-primary/40 transition">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{s.name}</p>
+                    <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded mt-0.5 inline-block">{typeLabel(s.messageType)}</span>
+                  </div>
+                  <button onClick={() => accounts.length > 0 ? useStarter(s) : null}
+                    disabled={accounts.length === 0}
+                    className="text-xs bg-primary text-white px-2.5 py-1 rounded-lg hover:bg-primary/90 disabled:opacity-50 shrink-0">
+                    Use
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 line-clamp-3 whitespace-pre-line font-mono">{s.content}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {isLoading ? (
         <div className="space-y-3">
           {[1,2,3].map(i => <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />)}
@@ -164,7 +318,7 @@ export default function WaTemplates() {
         <div className="bg-white rounded-xl border p-12 text-center">
           <Copy size={32} className="mx-auto text-gray-300 mb-3" />
           <p className="text-gray-500 font-medium">No templates yet</p>
-          <p className="text-sm text-gray-400 mt-1">Create message templates with variable placeholders</p>
+          <p className="text-sm text-gray-400 mt-1">Use a starter above or create your own</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -174,10 +328,10 @@ export default function WaTemplates() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-medium text-gray-900">{t.name}</p>
-                    <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full">{t.messageType}</span>
+                    <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full">{typeLabel(t.messageType)}</span>
                     <span className="text-xs text-gray-400">{accountMap[t.accountId] ?? t.accountId}</span>
                   </div>
-                  <p className="text-sm text-gray-600 mt-1.5 line-clamp-2 whitespace-pre-line">{t.content}</p>
+                  <p className="text-sm text-gray-600 mt-1.5 line-clamp-2 whitespace-pre-line font-mono text-xs">{t.content}</p>
                   {t.mediaUrl && (
                     <p className="text-xs text-gray-400 mt-1">📎 {t.mediaType} attached</p>
                   )}
@@ -198,7 +352,8 @@ export default function WaTemplates() {
         <TemplateModal
           template={editTemplate}
           accounts={accounts}
-          onClose={() => { setShowAdd(false); setEditTemplate(null); }}
+          prefill={showAdd && !editTemplate ? prefill : null}
+          onClose={() => { setShowAdd(false); setEditTemplate(null); setPrefill(null); }}
         />
       )}
     </div>

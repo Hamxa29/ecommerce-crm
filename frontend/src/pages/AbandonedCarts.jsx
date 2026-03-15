@@ -20,7 +20,7 @@ export default function AbandonedCarts() {
   const [filter, setFilter] = useState('');
   const qc = useQueryClient();
 
-  const { data = [], isLoading, refetch } = useQuery({
+  const { data = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['abandoned-carts', filter],
     queryFn: () => formsApi.listAbandoned(filter ? { status: filter } : {}),
     refetchInterval: 60000,
@@ -38,8 +38,8 @@ export default function AbandonedCarts() {
           <h1 className="text-xl font-semibold text-gray-900">Abandoned Carts</h1>
           <p className="text-sm text-gray-500 mt-0.5">Customers who started but didn't complete an order</p>
         </div>
-        <button onClick={() => refetch()} className="flex items-center gap-2 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50">
-          <RefreshCw size={14} /> Refresh
+        <button onClick={() => refetch()} disabled={isFetching} className="flex items-center gap-2 px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-60">
+          <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} /> Refresh
         </button>
       </div>
 

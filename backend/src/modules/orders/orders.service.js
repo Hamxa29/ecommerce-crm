@@ -3,6 +3,7 @@ import { parsePagination, paginatedResponse } from '../../utils/pagination.js';
 import { writeAuditLog } from '../../utils/auditLog.js';
 import { generateOrderNumber } from '../../utils/orderNumber.js';
 import { sendExcel } from '../../utils/excelExport.js';
+import { sendNewOrderNotification } from '../../utils/emailNotification.js';
 
 export async function listOrders(query) {
   const { skip, take, page, limit } = parsePagination(query);
@@ -84,7 +85,6 @@ export async function createOrder(data, actorId) {
       formId: data.formId ?? null,
       tags: data.tags ?? [],
       totalAmount: data.totalAmount,
-      deliveryFee: data.deliveryFee ?? 0,
       commitmentFee: data.commitmentFee ?? null,
       notes: data.notes ?? null,
       comment: data.comment ?? null,
@@ -115,6 +115,9 @@ export async function createOrder(data, actorId) {
   if (actorId) {
     await writeAuditLog({ userId: actorId, action: 'order.create', entityType: 'Order', entityId: order.id, details: { orderNumber } });
   }
+  if (data.source !== 'import') {
+    sendNewOrderNotification(order).catch(e => console.error('[Orders] Notification email error:', e.message));
+  }
   return order;
 }
 
@@ -130,7 +133,7 @@ export async function updateOrder(id, data, actorId) {
   return order;
 }
 
-export async function changeOrderStatus(id, newStatus, actorId, note, scheduledDate) {
+export async function changeOrderStatus(id, newStatus, actorId, note, scheduledDate, reminderEnabled, reminderOffset) {
   const current = await prisma.order.findUniqueOrThrow({
     where: { id },
     include: {
@@ -148,6 +151,9 @@ export async function changeOrderStatus(id, newStatus, actorId, note, scheduledD
   };
   if (newStatus === 'SCHEDULED' && scheduledDate) {
     updateData.scheduledDate = new Date(scheduledDate);
+    updateData.reminderEnabled = reminderEnabled ?? false;
+    updateData.reminderOffset = reminderOffset ?? 1440;
+    updateData.reminderSentAt = null; // reset if rescheduled
   }
 
   const order = await prisma.order.update({
@@ -167,6 +173,13 @@ export async function changeOrderStatus(id, newStatus, actorId, note, scheduledD
   import('../../jobs/automationJob.js').then(({ triggerAutomation }) => {
     triggerAutomation(order, newStatus).catch(console.error);
   });
+
+  // Notify staff who scheduled + agent when status becomes SCHEDULED
+  if (newStatus === 'SCHEDULED') {
+    import('../../jobs/scheduleNotifyJob.js').then(({ notifyScheduled }) => {
+      notifyScheduled(order, actorId).catch(console.error);
+    });
+  }
 
   return order;
 }
@@ -189,7 +202,10 @@ export async function bulkAction(orderIds, action, payload, actorId) {
     try {
       switch (action) {
         case 'status':
-          await changeOrderStatus(id, payload.status, actorId, payload.note, payload.scheduledDate);
+          await changeOrderStatus(id, payload.status, actorId, payload.note, payload.scheduledDate, payload.reminderEnabled, payload.reminderOffset);
+          if (payload.agentId) {
+            await prisma.order.update({ where: { id }, data: { agentId: payload.agentId } });
+          }
           break;
         case 'assign_agent':
           await prisma.order.update({ where: { id }, data: { agentId: payload.agentId } });
@@ -220,23 +236,34 @@ export async function bulkAction(orderIds, action, payload, actorId) {
   return results;
 }
 
-export async function getStats() {
+const PERIOD_DAYS = { '7d': 7, '14d': 14, '30d': 30, '3m': 90, '6m': 180, '1y': 365, '2y': 730 };
+
+export async function getStats(period = '7d') {
   const now = new Date();
+  let periodStart, prevStart, periodEnd;
 
-  const startOfThisWeek = new Date(now);
-  startOfThisWeek.setDate(now.getDate() - now.getDay());
-  startOfThisWeek.setHours(0, 0, 0, 0);
+  if (period === 'today') {
+    periodStart = new Date(now); periodStart.setHours(0, 0, 0, 0);
+    periodEnd = new Date(now); periodEnd.setHours(23, 59, 59, 999);
+    prevStart = new Date(periodStart); prevStart.setDate(prevStart.getDate() - 1);
+  } else if (period === 'yesterday') {
+    periodStart = new Date(now); periodStart.setDate(now.getDate() - 1); periodStart.setHours(0, 0, 0, 0);
+    periodEnd = new Date(periodStart); periodEnd.setHours(23, 59, 59, 999);
+    prevStart = new Date(periodStart); prevStart.setDate(prevStart.getDate() - 1);
+  } else {
+    const days = PERIOD_DAYS[period] ?? 7;
+    periodStart = new Date(now); periodStart.setDate(now.getDate() - days); periodStart.setHours(0, 0, 0, 0);
+    periodEnd = now;
+    prevStart = new Date(periodStart); prevStart.setDate(prevStart.getDate() - days);
+  }
 
-  const startOfLastWeek = new Date(startOfThisWeek);
-  startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
-
-  const [thisWeekOrders, lastWeekOrders, byStatus, abandonedByStatus] = await Promise.all([
+  const [currentOrders, prevOrders, byStatus, abandonedByStatus] = await Promise.all([
     prisma.order.findMany({
-      where: { createdAt: { gte: startOfThisWeek }, status: { notIn: ['DELETED'] } },
-      select: { status: true, totalAmount: true, deliveryFee: true },
+      where: { createdAt: { gte: periodStart, lte: periodEnd }, status: { notIn: ['DELETED'] } },
+      select: { status: true, totalAmount: true },
     }),
     prisma.order.findMany({
-      where: { createdAt: { gte: startOfLastWeek, lt: startOfThisWeek }, status: { notIn: ['DELETED'] } },
+      where: { createdAt: { gte: prevStart, lt: periodStart }, status: { notIn: ['DELETED'] } },
       select: { status: true, totalAmount: true },
     }),
     prisma.order.groupBy({ by: ['status'], _count: { id: true } }),
@@ -246,8 +273,8 @@ export async function getStats() {
   const sumAmount = (orders) => orders.reduce((s, o) => s + Number(o.totalAmount), 0);
   const countStatus = (orders, status) => orders.filter(o => o.status === status).length;
 
-  const thisWeekTotal = sumAmount(thisWeekOrders);
-  const lastWeekTotal = sumAmount(lastWeekOrders);
+  const currentTotal = sumAmount(currentOrders);
+  const prevTotal = sumAmount(prevOrders);
   const pctChange = (a, b) => b === 0 ? 0 : Math.round(((a - b) / b) * 100);
 
   const statusMap = {};
@@ -257,23 +284,24 @@ export async function getStats() {
   abandonedByStatus.forEach(r => { abandonedMap[r.recoveryStatus] = r._count.id; });
 
   return {
+    period,
     thisWeek: {
-      count: thisWeekOrders.length,
-      totalAmount: thisWeekTotal,
-      delivered: countStatus(thisWeekOrders, 'DELIVERED'),
-      deliveredAmount: sumAmount(thisWeekOrders.filter(o => o.status === 'DELIVERED')),
-      pending: countStatus(thisWeekOrders, 'PENDING'),
-      awaiting: countStatus(thisWeekOrders, 'AWAITING'),
-      scheduled: countStatus(thisWeekOrders, 'SCHEDULED'),
-      cancelled: countStatus(thisWeekOrders, 'CANCELLED'),
+      count: currentOrders.length,
+      totalAmount: currentTotal,
+      delivered: countStatus(currentOrders, 'DELIVERED'),
+      deliveredAmount: sumAmount(currentOrders.filter(o => o.status === 'DELIVERED')),
+      pending: countStatus(currentOrders, 'PENDING'),
+      awaiting: countStatus(currentOrders, 'AWAITING'),
+      scheduled: countStatus(currentOrders, 'SCHEDULED'),
+      cancelled: countStatus(currentOrders, 'CANCELLED'),
     },
     lastWeek: {
-      count: lastWeekOrders.length,
-      totalAmount: lastWeekTotal,
+      count: prevOrders.length,
+      totalAmount: prevTotal,
     },
     weekOverWeek: {
-      countChange: pctChange(thisWeekOrders.length, lastWeekOrders.length),
-      amountChange: pctChange(thisWeekTotal, lastWeekTotal),
+      countChange: pctChange(currentOrders.length, prevOrders.length),
+      amountChange: pctChange(currentTotal, prevTotal),
     },
     byStatus: statusMap,
     abandoned: {
@@ -355,8 +383,6 @@ export async function exportOrdersToExcel(query, res) {
     paymentStatus:  o.paymentStatus,
     products:       o.items.map(i => `${i.product.name}${i.variation ? ` (${i.variation})` : ''} x${i.quantity}`).join(', '),
     totalAmount:    Number(o.totalAmount),
-    deliveryFee:    Number(o.deliveryFee),
-    grandTotal:     Number(o.totalAmount) + Number(o.deliveryFee),
     source:         o.source,
     agent:          o.agent?.name ?? '',
     assignedStaff:  o.assignedStaff?.name ?? '',
@@ -382,8 +408,6 @@ export async function exportOrdersToExcel(query, res) {
       { header: 'Payment',       key: 'paymentStatus',  width: 12 },
       { header: 'Products',      key: 'products',       width: 40 },
       { header: 'Total (₦)',     key: 'totalAmount',    width: 14 },
-      { header: 'Delivery (₦)', key: 'deliveryFee',    width: 14 },
-      { header: 'Grand Total (₦)', key: 'grandTotal',  width: 16 },
       { header: 'Source',        key: 'source',         width: 12 },
       { header: 'Agent',         key: 'agent',          width: 18 },
       { header: 'Staff',         key: 'assignedStaff',  width: 18 },

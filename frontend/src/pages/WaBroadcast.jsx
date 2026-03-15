@@ -6,7 +6,7 @@ import { ORDER_STATUSES, NIGERIA_STATES } from '@/lib/constants';
 import { formatNGN, formatDate } from '@/lib/utils';
 import { Send, Search, Loader2, Plus, ExternalLink } from 'lucide-react';
 
-const PLACEHOLDER_VARS = ['[customername]','[ordernumber]','[productname]','[productprice]','[customerphone]','[individual_state]','[formlink]'];
+const PLACEHOLDER_VARS = ['{{customername}}','{{ordernumber}}','{{productname}}','{{productprice}}','{{customerphone}}','{{individual_state}}','{{formlink}}'];
 
 const api = {
   listAccounts:  () => client.get('/whatsapp/accounts').then(r => r.data),
@@ -134,7 +134,7 @@ export default function WaBroadcast() {
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Custom Message</label>
             <textarea value={customMessage} onChange={e => setCustomMessage(e.target.value)} rows={4}
-              placeholder="Hi [customername]! Your order [ordernumber] is on its way..."
+              placeholder="Hi {{customername}}! Your order {{ordernumber}} is on its way..."
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none" />
             <div className="mt-1.5">
               <p className="text-[10px] text-gray-400 mb-1">Click to insert variable:</p>
@@ -156,22 +156,29 @@ export default function WaBroadcast() {
       {accountId && (
         <div className="bg-white rounded-xl border p-5 space-y-4">
           <h3 className="text-sm font-semibold text-gray-700">Step 2 — Select Recipients</h3>
-          <div className="flex flex-wrap gap-3">
-            <div className="relative flex-1 min-w-40">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..."
-                className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-3">
+              <div className="relative flex-1 min-w-40">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..."
+                  className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              </div>
+              <select value={stateFilter} onChange={e => setStateFilter(e.target.value)}
+                className="border rounded-lg px-3 py-2 text-sm focus:outline-none">
+                <option value="">All States</option>
+                {NIGERIA_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
-            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-              className="border rounded-lg px-3 py-2 text-sm focus:outline-none">
-              <option value="">All Status</option>
-              {ORDER_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
-            <select value={stateFilter} onChange={e => setStateFilter(e.target.value)}
-              className="border rounded-lg px-3 py-2 text-sm focus:outline-none">
-              <option value="">All States</option>
-              {NIGERIA_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <div className="flex gap-1 overflow-x-auto pb-1 overscroll-x-contain">
+              {[{value:'',label:'All'},...ORDER_STATUSES].map(s => (
+                <button key={s.value} type="button" onClick={() => setStatusFilter(s.value)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                    statusFilter === s.value ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="border rounded-lg overflow-hidden">

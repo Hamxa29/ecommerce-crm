@@ -2,15 +2,17 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import client from '@/api/client';
 import { ORDER_STATUSES } from '@/lib/constants';
-import { Plus, Pencil, Trash2, Loader2, X, Zap, ToggleLeft, ToggleRight } from 'lucide-react';
+import { STARTER_TEMPLATES } from './WaTemplates';
+import { Plus, Pencil, Trash2, Loader2, X, Zap, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, Save } from 'lucide-react';
 
 const api = {
-  list:        () => client.get('/whatsapp/automation').then(r => r.data),
-  listAccounts:() => client.get('/whatsapp/accounts').then(r => r.data),
-  listTemplates:(accountId) => client.get('/whatsapp/templates', { params: { accountId } }).then(r => r.data),
-  create:      (d) => client.post('/whatsapp/automation', d).then(r => r.data),
-  update:      (id, d) => client.put(`/whatsapp/automation/${id}`, d).then(r => r.data),
-  delete:      (id) => client.delete(`/whatsapp/automation/${id}`).then(r => r.data),
+  list:           () => client.get('/whatsapp/automation').then(r => r.data),
+  listAccounts:   () => client.get('/whatsapp/accounts').then(r => r.data),
+  listTemplates:  (accountId) => client.get('/whatsapp/templates', { params: { accountId } }).then(r => r.data),
+  create:         (d) => client.post('/whatsapp/automation', d).then(r => r.data),
+  update:         (id, d) => client.put(`/whatsapp/automation/${id}`, d).then(r => r.data),
+  delete:         (id) => client.delete(`/whatsapp/automation/${id}`).then(r => r.data),
+  saveTemplate:   (d) => client.post('/whatsapp/templates', d).then(r => r.data),
 };
 
 function RuleModal({ rule, accounts, onClose }) {
@@ -24,6 +26,10 @@ function RuleModal({ rule, accounts, onClose }) {
     enabled: rule?.enabled ?? true,
   });
   const [error, setError] = useState('');
+  const [showStarters, setShowStarters] = useState(false);
+  const [saveAsName, setSaveAsName] = useState('');
+  const [showSaveAs, setShowSaveAs] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const { data: templates = [] } = useQuery({
     queryKey: ['wa-templates', form.accountId],
@@ -36,6 +42,34 @@ function RuleModal({ rule, accounts, onClose }) {
     onSuccess: () => { qc.invalidateQueries(['wa-automation']); onClose(); },
     onError: (e) => setError(e.response?.data?.error ?? 'Failed'),
   });
+
+  const saveTemplateMutation = useMutation({
+    mutationFn: (d) => api.saveTemplate(d),
+    onSuccess: (saved) => {
+      qc.invalidateQueries(['wa-templates']);
+      setForm(f => ({ ...f, templateId: saved.id, customMessage: '' }));
+      setShowSaveAs(false);
+      setSaveAsName('');
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    },
+    onError: (e) => setError(e.response?.data?.error ?? 'Failed to save template'),
+  });
+
+  const useStarter = (starter) => {
+    setForm(f => ({ ...f, templateId: '', customMessage: starter.content }));
+    setShowStarters(false);
+  };
+
+  const handleSaveAsTemplate = () => {
+    if (!saveAsName.trim()) return;
+    saveTemplateMutation.mutate({
+      accountId: form.accountId,
+      name: saveAsName.trim(),
+      messageType: 'custom',
+      content: form.customMessage,
+    });
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -60,23 +94,52 @@ function RuleModal({ rule, accounts, onClose }) {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Template (or write custom below)</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Saved Template (or write custom below)</label>
             <select value={form.templateId} onChange={e => setForm(f => ({...f, templateId: e.target.value}))}
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
               <option value="">— No template (use custom message) —</option>
               {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
+
+          {/* Starter Templates picker */}
+          <div className="border border-blue-200 rounded-lg overflow-hidden">
+            <button type="button" onClick={() => setShowStarters(s => !s)}
+              className="w-full flex items-center justify-between px-3 py-2.5 bg-blue-50 text-left">
+              <div className="flex items-center gap-2">
+                <Zap size={13} className="text-blue-500" />
+                <span className="text-xs font-semibold text-blue-700">Use a Starter Template</span>
+              </div>
+              {showStarters ? <ChevronUp size={13} className="text-blue-400" /> : <ChevronDown size={13} className="text-blue-400" />}
+            </button>
+            {showStarters && (
+              <div className="divide-y max-h-52 overflow-y-auto">
+                {STARTER_TEMPLATES.map((s, i) => (
+                  <div key={i} className="flex items-center justify-between px-3 py-2.5 hover:bg-gray-50">
+                    <div className="flex-1 min-w-0 pr-2">
+                      <p className="text-xs font-medium text-gray-800 truncate">{s.name}</p>
+                      <p className="text-[10px] text-gray-400 line-clamp-1 font-mono mt-0.5">{s.content.slice(0, 60)}…</p>
+                    </div>
+                    <button type="button" onClick={() => useStarter(s)}
+                      className="text-xs bg-primary text-white px-2.5 py-1 rounded-lg hover:bg-primary/90 shrink-0">
+                      Use
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {!form.templateId && (
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Custom Message</label>
-              <textarea value={form.customMessage} onChange={e => setForm(f => ({...f, customMessage: e.target.value}))} rows={4}
-                placeholder="Hi [customername]! Your order [ordernumber] has been confirmed..."
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none" />
+              <textarea value={form.customMessage} onChange={e => setForm(f => ({...f, customMessage: e.target.value}))} rows={5}
+                placeholder="Hi {{customername}}! Your order {{ordernumber}} has been confirmed..."
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none font-mono" />
               <div className="mt-1.5">
                 <p className="text-[10px] text-gray-400 mb-1">Click to insert variable:</p>
                 <div className="flex flex-wrap gap-1">
-                  {['[customername]','[ordernumber]','[productname]','[productprice]','[customerphone]','[individual_state]','[formlink]'].map(v => (
+                  {['{{customername}}','{{ordernumber}}','{{productname}}','{{productprice}}','{{customerphone}}','{{individual_state}}','{{formlink}}'].map(v => (
                     <button key={v} type="button"
                       onClick={() => setForm(f => ({...f, customMessage: f.customMessage + v}))}
                       className="text-[10px] bg-gray-100 hover:bg-primary/10 hover:text-primary border border-gray-200 rounded px-1.5 py-0.5 font-mono transition">
@@ -85,8 +148,44 @@ function RuleModal({ rule, accounts, onClose }) {
                   ))}
                 </div>
               </div>
+
+              {/* Save as template */}
+              {form.customMessage.trim() && (
+                <div className="mt-3">
+                  {saveSuccess && (
+                    <p className="text-xs text-green-600 font-medium mb-1.5">✓ Saved as template and selected</p>
+                  )}
+                  {!showSaveAs ? (
+                    <button type="button" onClick={() => setShowSaveAs(true)}
+                      className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium">
+                      <Save size={12} /> Save as template for reuse
+                    </button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        autoFocus
+                        value={saveAsName}
+                        onChange={e => setSaveAsName(e.target.value)}
+                        placeholder="Template name..."
+                        className="flex-1 border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        onKeyDown={e => { if (e.key === 'Enter') handleSaveAsTemplate(); if (e.key === 'Escape') setShowSaveAs(false); }}
+                      />
+                      <button type="button" onClick={handleSaveAsTemplate}
+                        disabled={!saveAsName.trim() || saveTemplateMutation.isPending}
+                        className="bg-primary text-white text-xs px-3 py-1.5 rounded-lg disabled:opacity-50 flex items-center gap-1">
+                        {saveTemplateMutation.isPending ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
+                        Save
+                      </button>
+                      <button type="button" onClick={() => setShowSaveAs(false)} className="text-gray-400 hover:text-gray-600 px-1">
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
+
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Delay (minutes after trigger)</label>
             <input type="number" min="0" value={form.delayMinutes} onChange={e => setForm(f => ({...f, delayMinutes: Number(e.target.value)}))}

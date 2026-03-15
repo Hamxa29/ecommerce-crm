@@ -6,7 +6,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 
 export const list           = (req, res, next) => svc.listOrders(req.query).then(r => res.json(r)).catch(next);
 export const getOne         = (req, res, next) => svc.getOrder(req.params.id).then(r => res.json(r)).catch(next);
-export const getStats       = (req, res, next) => svc.getStats().then(r => res.json(r)).catch(next);
+export const getStats       = (req, res, next) => svc.getStats(req.query.period).then(r => res.json(r)).catch(next);
 export const getDeliveries  = (req, res, next) => svc.getDeliveriesToday().then(r => res.json(r)).catch(next);
 export const getFollowups   = (req, res, next) => svc.getFollowupsToday().then(r => res.json(r)).catch(next);
 export const exportExcel    = (req, res, next) => svc.exportOrdersToExcel(req.query, res).catch(next);
@@ -25,9 +25,9 @@ export async function update(req, res, next) {
 
 export async function changeStatus(req, res, next) {
   try {
-    const { status, note, scheduledDate } = req.body;
+    const { status, note, scheduledDate, reminderEnabled, reminderOffset } = req.body;
     if (!status) return res.status(400).json({ error: 'status required' });
-    res.json(await svc.changeOrderStatus(req.params.id, status, req.user.id, note, scheduledDate));
+    res.json(await svc.changeOrderStatus(req.params.id, status, req.user.id, note, scheduledDate, reminderEnabled, reminderOffset));
   } catch (err) { next(err); }
 }
 
@@ -66,12 +66,11 @@ export async function importOrders(req, res, next) {
       const state         = String(vals[4] ?? '').trim();
       const city          = String(vals[5] ?? '').trim();
       const totalAmount   = parseFloat(vals[6]) || 0;
-      const deliveryFee   = parseFloat(vals[7]) || 0;
-      const notes         = String(vals[8] ?? '').trim();
+      const notes         = String(vals[7] ?? '').trim();
 
       if (!customerName || !customerPhone || !state) return;
 
-      rows.push({ customerName, customerPhone, address, state, city, totalAmount, deliveryFee, notes, source: 'import' });
+      rows.push({ customerName, customerPhone, address, state, city, totalAmount, notes, source: 'import' });
     });
 
     const created = [];

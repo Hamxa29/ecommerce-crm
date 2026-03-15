@@ -126,10 +126,6 @@ function SuccessScreen({ order, upsellProducts, upsellIdx, upsellLoading, onUpse
               <span className="text-gray-500">Total</span>
               <span className="font-semibold">{formatNGN(order?.totalAmount)}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Delivery Fee</span>
-              <span className="font-semibold">{formatNGN(order?.deliveryFee)}</span>
-            </div>
           </div>
         </div>
       </div>
@@ -398,7 +394,7 @@ export default function PublicOrderForm() {
 
       const { data } = await pub.post(`/forms/public/${slug}/submit`, {
         customerName, customerPhone, customerPhone2, customerEmail, address, state, city,
-        deliveryFee: getDeliveryFee(), items,
+        items,
         notes: customNotes || undefined,
       });
       abandonmentSent.current = true;
@@ -442,7 +438,6 @@ export default function PublicOrderForm() {
       onUpsellDecline={() => {}} />
   );
 
-  const deliveryFee = getDeliveryFee();
   const orderTotal = getOrderTotal();
 
   return (
@@ -700,16 +695,9 @@ export default function PublicOrderForm() {
                 );
               })}
 
-              {state && deliveryFee > 0 && (
-                <div className="flex justify-between border-t border-gray-100 pt-2">
-                  <span className="text-gray-500">Delivery ({state}):</span>
-                  <span className="font-semibold text-gray-800">₦{deliveryFee.toLocaleString()}</span>
-                </div>
-              )}
-
               <div className="flex justify-between border-t-2 border-gray-200 pt-3 mt-1">
                 <span className="font-bold text-gray-900 text-base">Total Amount:</span>
-                <span className="font-bold text-blue-600 text-xl">₦{(orderTotal + deliveryFee).toLocaleString()}</span>
+                <span className="font-bold text-blue-600 text-xl">₦{orderTotal.toLocaleString()}</span>
               </div>
             </div>
 
