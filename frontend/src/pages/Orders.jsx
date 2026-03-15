@@ -78,7 +78,7 @@ const STATUS_TABS = [
   { value: 'SWITCHED_OFF', label: 'Switched Off' },
   { value: 'CANCELLED', label: 'Cancelled' },
   { value: 'FAILED', label: 'Failed' },
-  { value: '__UNREMITTED__', label: 'Unremitted Cash' },
+  { value: '__REMITTED__', label: 'Cash Remitted' },
 ];
 
 const BULK_ACTIONS = [
@@ -198,10 +198,10 @@ export default function Orders() {
   });
   const agents = agentsData?.data ?? agentsData ?? [];
 
-  const isUnremittedTab = activeTab === '__UNREMITTED__';
+  const isRemittedTab = activeTab === '__REMITTED__';
   const params = {
-    status:      (!isUnremittedTab && activeTab) ? activeTab : undefined,
-    unremitted:  isUnremittedTab ? 'true' : undefined,
+    status:        (!isRemittedTab && activeTab) ? activeTab : undefined,
+    paymentStatus: isRemittedTab ? 'REMITTED' : undefined,
     search:      search || undefined,
     state:       stateFilter || undefined,
     page,
@@ -405,9 +405,6 @@ export default function Orders() {
                       }
                       {order.paymentStatus === 'REMITTED' && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">Remitted</span>
-                      )}
-                      {order.status === 'DELIVERED' && order.paymentMethod === 'COD' && order.paymentStatus !== 'REMITTED' && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">Unremitted</span>
                       )}
                     </div>
                   </td>
