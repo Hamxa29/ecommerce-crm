@@ -20,6 +20,9 @@ router.get('/', async (req, res, next) => {
 router.put('/', requireRole('ADMIN'), async (req, res, next) => {
   try {
     const data = { ...req.body };
+    // Strip virtual/computed fields — not real DB columns
+    delete data.chatbotAnthropicKeySet;
+    delete data.chatbotOpenaiKeySet;
     // Don't overwrite secret fields when frontend sends empty/null (key was never loaded into form)
     if (!data.paymentProviderKey)   delete data.paymentProviderKey;
     if (!data.paymentWebhookSecret) delete data.paymentWebhookSecret;
