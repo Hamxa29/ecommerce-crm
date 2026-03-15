@@ -9,7 +9,7 @@ import { formatNGN, formatDate } from '@/lib/utils';
 import OrderStatusBadge from '@/components/shared/OrderStatusBadge';
 import PhoneLink from '@/components/shared/PhoneLink';
 import CalendarPicker from '@/components/shared/CalendarPicker';
-import { ArrowLeft, Clock, MessageCircle, Loader2, Trash2, Truck, CreditCard, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Clock, MessageCircle, Loader2, Trash2, Truck, CreditCard, CheckCircle2, UserPlus } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 
 export default function OrderDetail() {
@@ -214,32 +214,65 @@ export default function OrderDetail() {
               </div>
             )}
 
-            {(newStatus === 'DELIVERED' || newStatus === 'FAILED') && (
-              <div className="mb-3">
-                <label className="block text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1.5">
-                  <Truck size={12} />
-                  {newStatus === 'DELIVERED' ? 'Who delivered this order?' : 'Which delivery agent attempted delivery?'}
-                  <span className="text-gray-400 font-normal">(optional)</span>
-                </label>
-                {agents.length > 0 && (
-                  <div className="space-y-1.5 max-h-40 overflow-y-auto border rounded-xl p-2 bg-gray-50">
-                    <label className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition ${deliveryAgentId === '' ? 'bg-primary/10 border border-primary/30' : 'hover:bg-white border border-transparent'}`}>
-                      <input type="radio" name="deliveryAgent" value="" checked={deliveryAgentId === ''} onChange={() => setDeliveryAgentId('')} className="accent-primary shrink-0" />
-                      <span className="text-sm text-gray-500 italic">No agent</span>
-                    </label>
-                    {agents.map(agent => (
-                      <label key={agent.id} className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition ${deliveryAgentId === agent.id ? 'bg-primary/10 border border-primary/30' : 'hover:bg-white border border-transparent'}`}>
-                        <input type="radio" name="deliveryAgent" value={agent.id} checked={deliveryAgentId === agent.id} onChange={() => setDeliveryAgentId(agent.id)} className="accent-primary shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-800">{agent.name}</p>
-                          {agent.states?.length > 0 && <p className="text-[10px] text-gray-400 truncate">{agent.states.join(', ')}</p>}
-                        </div>
+            {(newStatus === 'DELIVERED' || newStatus === 'FAILED') && (() => {
+              const orderState = order?.state;
+              // Agents that cover this order's state, or agents with no states configured
+              const stateAgents = agents.filter(a =>
+                !a.states?.length || a.states.includes(orderState)
+              );
+              const hasAgents = agents.length > 0;
+              const noAgentsForState = hasAgents && stateAgents.length === 0;
+
+              return (
+                <div className="mb-3">
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1.5">
+                    <Truck size={12} />
+                    {newStatus === 'DELIVERED' ? 'Who delivered this order?' : 'Which delivery agent attempted delivery?'}
+                    {orderState && <span className="text-primary font-semibold">· {orderState}</span>}
+                  </label>
+
+                  {/* No agents at all */}
+                  {!hasAgents && (
+                    <a href="/agents" className="flex items-center gap-2 text-xs text-primary hover:underline bg-primary/5 border border-primary/20 rounded-lg px-3 py-2.5">
+                      <UserPlus size={13} />
+                      No delivery agents added yet — click to add one
+                    </a>
+                  )}
+
+                  {/* Agents exist but none cover this state */}
+                  {noAgentsForState && (
+                    <div className="border border-amber-200 bg-amber-50 rounded-lg px-3 py-2.5 space-y-1.5">
+                      <p className="text-xs text-amber-700 font-medium">
+                        No delivery agents set up for {orderState}.
+                      </p>
+                      <a href="/agents" className="flex items-center gap-1.5 text-xs text-primary hover:underline font-medium">
+                        <UserPlus size={12} />
+                        Add an agent for {orderState}
+                      </a>
+                    </div>
+                  )}
+
+                  {/* State-filtered agent list */}
+                  {stateAgents.length > 0 && (
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto border rounded-xl p-2 bg-gray-50">
+                      <label className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition ${deliveryAgentId === '' ? 'bg-primary/10 border border-primary/30' : 'hover:bg-white border border-transparent'}`}>
+                        <input type="radio" name="deliveryAgent" value="" checked={deliveryAgentId === ''} onChange={() => setDeliveryAgentId('')} className="accent-primary shrink-0" />
+                        <span className="text-sm text-gray-500 italic">No agent</span>
                       </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                      {stateAgents.map(agent => (
+                        <label key={agent.id} className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition ${deliveryAgentId === agent.id ? 'bg-primary/10 border border-primary/30' : 'hover:bg-white border border-transparent'}`}>
+                          <input type="radio" name="deliveryAgent" value={agent.id} checked={deliveryAgentId === agent.id} onChange={() => setDeliveryAgentId(agent.id)} className="accent-primary shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-800">{agent.name}</p>
+                            {agent.states?.length > 0 && <p className="text-[10px] text-gray-400 truncate">{agent.states.join(', ')}</p>}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Note (optional)" rows={2}
               className="w-full border rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary/30" />

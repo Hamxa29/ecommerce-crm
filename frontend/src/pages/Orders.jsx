@@ -9,7 +9,7 @@ import OrderStatusBadge from '@/components/shared/OrderStatusBadge';
 import PhoneLink from '@/components/shared/PhoneLink';
 import EmptyState from '@/components/shared/EmptyState';
 import CalendarPicker from '@/components/shared/CalendarPicker';
-import { Search, Filter, RefreshCw, ChevronDown, CheckSquare, Loader2, X, Plus, FileDown, Upload } from 'lucide-react';
+import { Search, Filter, RefreshCw, ChevronDown, CheckSquare, Loader2, X, Plus, FileDown, Upload, UserPlus } from 'lucide-react';
 
 function StateDropdown({ value, onChange }) {
   const [open, setOpen] = useState(false);
@@ -441,41 +441,82 @@ export default function Orders() {
       )}
 
       {/* Delivered / Agent modal */}
-      {deliveredModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4">
-            <h3 className="font-semibold text-gray-900">
-              {bulkAction === 'status:DELIVERED' ? 'Who delivered these orders?' : 'Assign delivery agent'}
-            </h3>
-            <p className="text-xs text-gray-500">{selectedIds.length} order{selectedIds.length !== 1 ? 's' : ''} selected</p>
-            <div className="max-h-64 overflow-y-auto border rounded-lg divide-y">
-              <label className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50">
-                <input type="radio" name="bulk-agent" value="" checked={bulkAgentId === ''}
-                  onChange={() => setBulkAgentId('')} className="accent-primary" />
-                <span className="text-sm text-gray-500 italic">No delivery agent / skip</span>
-              </label>
-              {agents.map(agent => (
-                <label key={agent.id} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50">
-                  <input type="radio" name="bulk-agent" value={agent.id} checked={bulkAgentId === agent.id}
-                    onChange={() => setBulkAgentId(agent.id)} className="accent-primary" />
-                  <span className="text-sm text-gray-800">{agent.name}</span>
-                </label>
-              ))}
-              {agents.length === 0 && (
-                <p className="text-xs text-gray-400 px-3 py-3">No delivery agents found</p>
+      {deliveredModal && (() => {
+        const selectedOrders = orders.filter(o => selectedIds.includes(o.id));
+        const selectedStates = [...new Set(selectedOrders.map(o => o.state).filter(Boolean))];
+        // Show agents that cover at least one of the selected orders' states, or agents with no states configured
+        const stateAgents = agents.filter(a =>
+          !a.states?.length || selectedStates.some(s => a.states.includes(s))
+        );
+        const hasAgents = agents.length > 0;
+        const noAgentsForStates = hasAgents && stateAgents.length === 0;
+        const stateLabel = selectedStates.length === 1 ? selectedStates[0] : `${selectedStates.length} states`;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4">
+              <h3 className="font-semibold text-gray-900">
+                {bulkAction === 'status:DELIVERED' ? 'Who delivered these orders?' : 'Assign delivery agent'}
+              </h3>
+              <p className="text-xs text-gray-500">
+                {selectedIds.length} order{selectedIds.length !== 1 ? 's' : ''} selected
+                {selectedStates.length > 0 && <> · <span className="font-medium text-gray-700">{stateLabel}</span></>}
+              </p>
+
+              {/* No agents at all */}
+              {!hasAgents && (
+                <a href="/agents" className="flex items-center gap-2 text-xs text-primary hover:underline bg-primary/5 border border-primary/20 rounded-lg px-3 py-2.5">
+                  <UserPlus size={13} />
+                  No delivery agents added yet — click to add one
+                </a>
               )}
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => { setDeliveredModal(false); setBulkAgentId(''); }}
-                className="flex-1 border rounded-lg py-2 text-sm hover:bg-gray-50">Cancel</button>
-              <button onClick={() => { setDeliveredModal(false); executeBulk(undefined, bulkAgentId || null); setBulkAgentId(''); }}
-                className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium">
-                Confirm
-              </button>
+
+              {/* Agents exist but none cover selected states */}
+              {noAgentsForStates && (
+                <div className="border border-amber-200 bg-amber-50 rounded-lg px-3 py-2.5 space-y-1.5">
+                  <p className="text-xs text-amber-700 font-medium">
+                    No delivery agents set up for {stateLabel}.
+                  </p>
+                  <a href="/agents" className="flex items-center gap-1.5 text-xs text-primary hover:underline font-medium">
+                    <UserPlus size={12} />
+                    Add an agent for {stateLabel}
+                  </a>
+                </div>
+              )}
+
+              {/* State-filtered agent list */}
+              {stateAgents.length > 0 && (
+                <div className="max-h-64 overflow-y-auto border rounded-lg divide-y">
+                  <label className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50">
+                    <input type="radio" name="bulk-agent" value="" checked={bulkAgentId === ''}
+                      onChange={() => setBulkAgentId('')} className="accent-primary" />
+                    <span className="text-sm text-gray-500 italic">No delivery agent / skip</span>
+                  </label>
+                  {stateAgents.map(agent => (
+                    <label key={agent.id} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50">
+                      <input type="radio" name="bulk-agent" value={agent.id} checked={bulkAgentId === agent.id}
+                        onChange={() => setBulkAgentId(agent.id)} className="accent-primary" />
+                      <div className="min-w-0">
+                        <p className="text-sm text-gray-800">{agent.name}</p>
+                        {agent.states?.length > 0 && <p className="text-[10px] text-gray-400 truncate">{agent.states.join(', ')}</p>}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button onClick={() => { setDeliveredModal(false); setBulkAgentId(''); }}
+                  className="flex-1 border rounded-lg py-2 text-sm hover:bg-gray-50">Cancel</button>
+                <button onClick={() => { setDeliveredModal(false); executeBulk(undefined, bulkAgentId || null); setBulkAgentId(''); }}
+                  className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium">
+                  Confirm
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
