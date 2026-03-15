@@ -3,7 +3,7 @@ import { parsePagination, paginatedResponse } from '../../utils/pagination.js';
 import { writeAuditLog } from '../../utils/auditLog.js';
 import { generateOrderNumber } from '../../utils/orderNumber.js';
 import { sendExcel } from '../../utils/excelExport.js';
-import { sendNewOrderNotification } from '../../utils/emailNotification.js';
+import { sendNewOrderNotification, sendOrderStatusEmail } from '../../utils/emailNotification.js';
 
 export async function listOrders(query) {
   const { skip, take, page, limit } = parsePagination(query);
@@ -174,6 +174,11 @@ export async function changeOrderStatus(id, newStatus, actorId, note, scheduledD
   import('../../jobs/automationJob.js').then(({ triggerAutomation }) => {
     triggerAutomation(order, newStatus).catch(console.error);
   });
+
+  // Email customer on CONFIRMED or DELIVERED
+  if (['CONFIRMED', 'DELIVERED'].includes(newStatus)) {
+    sendOrderStatusEmail(order, newStatus).catch(e => console.error('[Orders] Status email error:', e.message));
+  }
 
   // Notify staff who scheduled + agent when status becomes SCHEDULED
   if (newStatus === 'SCHEDULED') {

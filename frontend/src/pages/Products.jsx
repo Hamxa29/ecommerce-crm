@@ -302,82 +302,103 @@ export default function Products() {
 
       <div className="flex gap-4 items-start">
         {/* Left: Categories panel */}
-        <div className="w-52 shrink-0 bg-white rounded-xl border overflow-hidden">
-          <div className="flex items-center justify-between px-3 py-2.5 border-b bg-gray-50">
-            <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Categories</span>
+        <div className="w-56 shrink-0 bg-white rounded-xl border overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Categories</span>
             <button onClick={() => setCatModal('create')}
-              className="p-1 rounded hover:bg-gray-200 text-gray-500" title="Add category">
-              <Plus size={13} />
+              className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium" title="Add category">
+              <Plus size={13} /> New
             </button>
           </div>
           <div className="overflow-y-auto max-h-[calc(100vh-220px)]">
+            {/* All Products button */}
             <button
               onClick={() => setSelectedCatId('')}
-              className={`w-full text-left px-3 py-2.5 text-sm transition-colors flex items-center gap-2 ${
-                !selectedCatId ? 'bg-primary/10 text-primary font-medium' : 'text-gray-700 hover:bg-gray-50'
+              className={`w-full text-left px-4 py-3 text-sm transition-colors flex items-center gap-2.5 border-b ${
+                !selectedCatId ? 'bg-primary text-white font-medium' : 'text-gray-700 hover:bg-gray-50'
               }`}
             >
-              <Tag size={13} className="shrink-0" />
-              <span className="truncate">All Products</span>
-              <span className="ml-auto text-xs text-gray-400">{data?.pagination?.total ?? ''}</span>
+              <Tag size={14} className="shrink-0" />
+              <span className="flex-1 truncate font-medium">All Products</span>
+              <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${!selectedCatId ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                {data?.pagination?.total ?? 0}
+              </span>
             </button>
             {loadingCats ? (
               <div className="p-3 space-y-2">
-                {[1,2,3].map(i => <div key={i} className="h-8 bg-gray-100 rounded animate-pulse" />)}
+                {[1,2,3].map(i => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}
               </div>
             ) : cats.map(cat => (
               <div
                 key={cat.id}
-                className={`group flex items-center gap-1 px-3 py-2.5 transition-colors cursor-pointer ${
-                  selectedCatId === cat.id ? 'bg-primary/10 text-primary font-medium' : 'text-gray-700 hover:bg-gray-50'
+                className={`group flex items-center gap-2.5 px-4 py-3 transition-colors cursor-pointer border-b last:border-0 ${
+                  selectedCatId === cat.id ? 'bg-primary/10 border-l-2 border-l-primary' : 'hover:bg-gray-50'
                 }`}
                 onClick={() => setSelectedCatId(cat.id)}
               >
-                <Tag size={13} className="shrink-0 text-gray-400" />
-                <span className="flex-1 text-sm truncate">{cat.name}</span>
-                <span className="text-xs text-gray-400 mr-1">{cat._count?.products ?? 0}</span>
-                <div className="hidden group-hover:flex items-center gap-0.5">
+                <div className={`w-2 h-2 rounded-full shrink-0 ${selectedCatId === cat.id ? 'bg-primary' : 'bg-gray-300'}`} />
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm truncate font-medium ${selectedCatId === cat.id ? 'text-primary' : 'text-gray-800'}`}>{cat.name}</p>
+                  {cat.brandName && <p className="text-[11px] text-gray-400 truncate">{cat.brandName}</p>}
+                </div>
+                <span className="text-xs text-gray-400 shrink-0">{cat._count?.products ?? 0}</span>
+                <div className="hidden group-hover:flex items-center gap-0.5 shrink-0">
                   <button onClick={e => { e.stopPropagation(); setCatModal(cat); }}
-                    className="p-0.5 rounded hover:bg-gray-200 text-gray-400"><Pencil size={11} /></button>
+                    className="p-1 rounded hover:bg-gray-200 text-gray-400"><Pencil size={11} /></button>
                   <button onClick={e => { e.stopPropagation(); setDeleteCatTarget(cat); }}
-                    className="p-0.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 size={11} /></button>
+                    className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500"><Trash2 size={11} /></button>
                 </div>
               </div>
             ))}
             {cats.length === 0 && !loadingCats && (
-              <p className="text-xs text-gray-400 px-3 py-4 text-center">No categories yet</p>
+              <div className="px-4 py-8 text-center">
+                <Tag size={24} className="mx-auto text-gray-300 mb-2" />
+                <p className="text-xs text-gray-400">No categories yet</p>
+                <button onClick={() => setCatModal('create')} className="mt-2 text-xs text-primary hover:underline">Create one</button>
+              </div>
             )}
           </div>
         </div>
 
         {/* Right: Products */}
         <div className="flex-1 space-y-3 min-w-0">
-          {/* Search + category header */}
+          {/* Search bar */}
           <div className="bg-white rounded-xl border p-3 flex items-center gap-3">
             <div className="relative flex-1">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input value={search} onChange={e => setSearch(e.target.value)}
-                placeholder={selectedCat ? `Search in ${selectedCat.name}...` : 'Search products...'}
+                placeholder={selectedCat ? `Search in ${selectedCat.name}...` : 'Search products by name...'}
                 className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
             </div>
             {selectedCatId && (
               <button onClick={() => setSelectedCatId('')}
-                className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 border rounded-lg px-2 py-1.5">
-                <X size={12} /> Clear filter
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 border rounded-lg px-2 py-1.5 whitespace-nowrap">
+                <X size={12} /> Clear
               </button>
             )}
           </div>
 
+          {/* Selected category info banner */}
           {selectedCat && (
-            <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-2.5 flex items-center gap-3">
-              <Tag size={14} className="text-blue-500" />
+            <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                <Tag size={15} className="text-primary" />
+              </div>
               <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium text-blue-800">{selectedCat.name}</span>
-                {selectedCat.brandName && <span className="text-xs text-blue-500 ml-2">· {selectedCat.brandName}</span>}
+                <p className="text-sm font-semibold text-gray-800">{selectedCat.name}</p>
+                <p className="text-xs text-gray-500">
+                  {selectedCat.brandName && <span>{selectedCat.brandName}</span>}
+                  {selectedCat.brandPhone && <span className="ml-2">· {selectedCat.brandPhone}</span>}
+                  {!selectedCat.brandName && !selectedCat.brandPhone && <span>No brand info added</span>}
+                </p>
               </div>
               <button onClick={() => setProductModal('create')}
-                className="flex items-center gap-1 text-xs bg-blue-600 text-white px-2.5 py-1.5 rounded-lg hover:bg-blue-700">
-                <Plus size={12} /> Add to this category
+                className="flex items-center gap-1.5 text-xs bg-primary text-white px-3 py-2 rounded-lg hover:bg-primary/90 shrink-0">
+                <Plus size={12} /> Add Product
+              </button>
+              <button onClick={() => setCatModal(selectedCat)}
+                className="flex items-center gap-1.5 text-xs border text-gray-600 px-3 py-2 rounded-lg hover:bg-gray-50 shrink-0">
+                <Pencil size={12} /> Edit Category
               </button>
             </div>
           )}
@@ -387,9 +408,9 @@ export default function Products() {
               <thead>
                 <tr className="border-b bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
                   <th className="text-left px-4 py-3">Product</th>
-                  <th className="text-left px-4 py-3">Category</th>
+                  {!selectedCatId && <th className="text-left px-4 py-3">Category</th>}
                   <th className="text-left px-4 py-3">Cost Price</th>
-                  <th className="text-left px-4 py-3">Tiers</th>
+                  <th className="text-left px-4 py-3">Selling Prices</th>
                   <th className="text-left px-4 py-3">Stock</th>
                   <th className="text-left px-4 py-3">Payment</th>
                   <th className="text-left px-4 py-3">Status</th>
@@ -398,46 +419,72 @@ export default function Products() {
               </thead>
               <tbody className="divide-y">
                 {isLoading ? Array(5).fill(0).map((_, i) => (
-                  <tr key={i}>{Array(8).fill(0).map((_, j) => (
+                  <tr key={i}>{Array(selectedCatId ? 7 : 8).fill(0).map((_, j) => (
                     <td key={j} className="px-4 py-3"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td>
                   ))}</tr>
                 )) : products.length === 0 ? (
-                  <tr><td colSpan={8}>
+                  <tr><td colSpan={selectedCatId ? 7 : 8}>
                     <EmptyState
-                      title={selectedCat ? `No products in "${selectedCat.name}"` : 'No products yet'}
-                      description={selectedCat ? 'Click "Add to this category" above.' : 'Add your first product.'}
+                      title={selectedCat ? `No products in "${selectedCat.name}" yet` : 'No products yet'}
+                      description={selectedCat ? 'Click "Add Product" above to add one.' : 'Click "Add Product" to get started.'}
                     />
                   </td></tr>
-                ) : products.map(p => (
-                  <tr key={p.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">{p.name}</td>
-                    <td className="px-4 py-3 text-gray-600">{p.category?.name}</td>
-                    <td className="px-4 py-3 text-gray-600">{formatNGN(p.costPrice)}</td>
-                    <td className="px-4 py-3 text-gray-600">{Array.isArray(p.pricingTiers) ? p.pricingTiers.length : 0} tiers</td>
-                    <td className="px-4 py-3 text-gray-600">{p.stock}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                        p.paymentMethod === 'PBD'  ? 'bg-blue-100 text-blue-700' :
-                        p.paymentMethod === 'BOTH' ? 'bg-purple-100 text-purple-700' :
-                        'bg-gray-100 text-gray-600'
-                      }`}>
-                        {p.paymentMethod === 'PBD' ? 'PBD' : p.paymentMethod === 'BOTH' ? 'COD+PBD' : 'COD'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.status ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                        {p.status ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => setProductModal(p)} className="p-1.5 rounded hover:bg-gray-100 text-gray-500"><Pencil size={13} /></button>
-                        <button onClick={() => dupMutation.mutate(p.id)} className="p-1.5 rounded hover:bg-gray-100 text-gray-500" title="Duplicate"><Copy size={13} /></button>
-                        <button onClick={() => setDeleteProductTarget(p)} className="p-1.5 rounded hover:bg-red-50 text-gray-500 hover:text-red-600"><Trash2 size={13} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                ) : products.map(p => {
+                  const tiers = Array.isArray(p.pricingTiers) ? p.pricingTiers : [];
+                  return (
+                    <tr key={p.id} className="hover:bg-gray-50 group">
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-gray-900">{p.name}</p>
+                        {Array.isArray(p.variations) && p.variations.length > 0 && (
+                          <p className="text-xs text-gray-400 mt-0.5">{p.variations.map(v => v.name).join(' · ')}</p>
+                        )}
+                      </td>
+                      {!selectedCatId && <td className="px-4 py-3 text-gray-500 text-xs">{p.category?.name ?? '—'}</td>}
+                      <td className="px-4 py-3 text-gray-600 text-xs font-medium">{formatNGN(p.costPrice)}</td>
+                      <td className="px-4 py-3">
+                        {tiers.length === 0 ? (
+                          <span className="text-xs text-gray-400">No tiers set</span>
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {tiers.map((t, i) => (
+                              <span key={i} className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-medium whitespace-nowrap"
+                                title={t.label}>
+                                {t.label ? `${t.label.slice(0,10)}${t.label.length>10?'…':''}: ` : ''}₦{Number(t.price).toLocaleString()}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs font-semibold ${p.stock < 5 ? 'text-red-600' : p.stock < 20 ? 'text-orange-500' : 'text-gray-700'}`}>
+                          {p.stock}
+                        </span>
+                        {p.stock < 5 && <span className="ml-1 text-[10px] text-red-400">Low</span>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                          p.paymentMethod === 'PBD'  ? 'bg-blue-100 text-blue-700' :
+                          p.paymentMethod === 'BOTH' ? 'bg-purple-100 text-purple-700' :
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {p.paymentMethod === 'PBD' ? 'Pay Before' : p.paymentMethod === 'BOTH' ? 'COD + PBD' : 'Cash on Delivery'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.status ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-500'}`}>
+                          {p.status ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => setProductModal(p)} className="p-1.5 rounded hover:bg-gray-100 text-gray-500" title="Edit"><Pencil size={13} /></button>
+                          <button onClick={() => dupMutation.mutate(p.id)} className="p-1.5 rounded hover:bg-gray-100 text-gray-500" title="Duplicate"><Copy size={13} /></button>
+                          <button onClick={() => setDeleteProductTarget(p)} className="p-1.5 rounded hover:bg-red-50 text-gray-500 hover:text-red-600" title="Delete"><Trash2 size={13} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

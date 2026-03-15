@@ -91,6 +91,68 @@ export async function sendNewOrderNotification(order) {
   }
 }
 
+export async function sendOrderStatusEmail(order, newStatus) {
+  if (!['CONFIRMED', 'DELIVERED'].includes(newStatus)) return;
+  if (!order.customerEmail) return;
+
+  try {
+    const transporter = createTransporter();
+    if (!transporter) return;
+
+    const settings = await prisma.storeSettings.findUnique({ where: { id: 'singleton' } });
+    const storeName = settings?.storeName ?? 'E-Commerce CRM';
+    const fromEmail = settings?.email || FROM_ADDRESS;
+    const isDelivered = newStatus === 'DELIVERED';
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <body style="font-family:Arial,sans-serif;background:#f9fafb;margin:0;padding:20px">
+        <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)">
+          <div style="background:${isDelivered ? '#16a34a' : '#1d4ed8'};padding:28px 24px;text-align:center">
+            <h1 style="color:#fff;margin:0;font-size:22px">${isDelivered ? '🎉 Order Delivered!' : '✅ Order Confirmed!'}</h1>
+            <p style="color:${isDelivered ? '#bbf7d0' : '#bfdbfe'};margin:6px 0 8px;font-size:13px">${storeName}</p>
+            <p style="color:#fff;margin:0;font-size:20px;font-weight:bold;letter-spacing:1px">${order.orderNumber}</p>
+          </div>
+          <div style="padding:24px">
+            <p style="font-size:15px;color:#374151;margin:0 0 20px">
+              Hi <strong>${order.customerName}</strong>,
+              ${isDelivered
+                ? ' your order has been delivered. Thank you for shopping with us!'
+                : ' your order has been confirmed and our team will contact you to arrange delivery.'}
+            </p>
+            <div style="background:#f8fafc;border-radius:8px;padding:16px;font-size:14px;line-height:1.9">
+              <div><span style="color:#6b7280">Order Number:</span> <strong style="color:#1d4ed8">${order.orderNumber}</strong></div>
+              <div><span style="color:#6b7280">Status:</span> <strong>${isDelivered ? 'Delivered' : 'Confirmed'}</strong></div>
+              ${order.address ? `<div><span style="color:#6b7280">Address:</span> ${order.address}, ${order.state}</div>` : ''}
+            </div>
+            <div style="margin-top:20px;background:${isDelivered ? '#f0fdf4' : '#eff6ff'};border:2px solid ${isDelivered ? '#bbf7d0' : '#bfdbfe'};border-radius:8px;padding:16px;text-align:center">
+              <p style="margin:0;color:${isDelivered ? '#166534' : '#1e40af'};font-size:13px">Total Amount</p>
+              <p style="margin:4px 0 0;font-size:24px;font-weight:bold;color:${isDelivered ? '#166534' : '#1e40af'}">₦${Number(order.totalAmount).toLocaleString()}</p>
+            </div>
+            <p style="margin-top:20px;font-size:13px;color:#6b7280">Questions? Reply to this email or reach out to us directly.</p>
+          </div>
+          <div style="background:#f9fafb;padding:16px;text-align:center;font-size:12px;color:#9ca3af">
+            ${storeName} · Automated order update
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    await transporter.sendMail({
+      from: `"${storeName}" <${fromEmail}>`,
+      to: order.customerEmail,
+      subject: isDelivered ? `🎉 Your order has been delivered — ${order.orderNumber}` : `✅ Order confirmed — ${order.orderNumber}`,
+      html,
+    });
+
+    console.log(`[Email] Status email (${newStatus}) sent to: ${order.customerEmail}`);
+  } catch (err) {
+    console.error('[Email] Failed to send status email:', err.message);
+  }
+}
+
 export async function sendOrderReceipt(order) {
   if (!order.customerEmail) return; // No customer email on file
 

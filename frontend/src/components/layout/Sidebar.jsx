@@ -21,7 +21,7 @@ const NAV_SECTIONS = [
     items: [
       { to: '/orders', icon: ClipboardList, label: 'Orders' },
       { to: '/today', icon: CalendarCheck, label: "Today's Schedule" },
-      { to: '/abandoned-carts', icon: ShoppingCart, label: 'Abandoned Carts' },
+      { to: '/abandoned-carts', icon: ShoppingCart, label: 'Abandoned Carts', roles: ['ADMIN', 'SUPERVISOR'] },
     ],
   },
   {

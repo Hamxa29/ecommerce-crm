@@ -1,6 +1,14 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AppLayout from './components/layout/AppLayout';
+import { useAuthStore } from './stores/authStore';
+
+function RoleRoute({ roles, children }) {
+  const user = useAuthStore((s) => s.user);
+  if (!user) return <Navigate to="/login" replace />;
+  if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />;
+  return children;
+}
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Orders from './pages/Orders';
@@ -42,7 +50,7 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/orders" element={<Orders />} />
             <Route path="/orders/:id" element={<OrderDetail />} />
-            <Route path="/users" element={<Users />} />
+            <Route path="/users" element={<RoleRoute roles={['ADMIN','SUPERVISOR']}><Users /></RoleRoute>} />
             <Route path="/product-categories" element={<Navigate to="/products" replace />} />
             <Route path="/products" element={<Products />} />
             <Route path="/forms" element={<Forms />} />
@@ -51,13 +59,13 @@ export default function App() {
             {/* Keep old routes as redirects */}
             <Route path="/deliveries-today" element={<Navigate to="/today" replace />} />
             <Route path="/followups-today" element={<Navigate to="/today" replace />} />
-            <Route path="/abandoned-carts" element={<AbandonedCarts />} />
-            <Route path="/whatsapp/accounts" element={<WaAccounts />} />
+            <Route path="/abandoned-carts" element={<RoleRoute roles={['ADMIN','SUPERVISOR']}><AbandonedCarts /></RoleRoute>} />
+            <Route path="/whatsapp/accounts" element={<RoleRoute roles={['ADMIN','SUPERVISOR']}><WaAccounts /></RoleRoute>} />
             <Route path="/whatsapp/templates" element={<WaTemplates />} />
-            <Route path="/whatsapp/broadcast" element={<WaBroadcast />} />
-            <Route path="/whatsapp/automation" element={<WaAutomation />} />
-            <Route path="/whatsapp/chatbot"    element={<WaChatbot />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/whatsapp/broadcast" element={<RoleRoute roles={['ADMIN','SUPERVISOR','STAFF']}><WaBroadcast /></RoleRoute>} />
+            <Route path="/whatsapp/automation" element={<RoleRoute roles={['ADMIN','SUPERVISOR']}><WaAutomation /></RoleRoute>} />
+            <Route path="/whatsapp/chatbot"    element={<RoleRoute roles={['ADMIN','SUPERVISOR']}><WaChatbot /></RoleRoute>} />
+            <Route path="/settings" element={<RoleRoute roles={['ADMIN']}><Settings /></RoleRoute>} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
