@@ -10,6 +10,7 @@ router.post('/public/:slug/hit',     ctrl.publicHit);
 router.post('/public/:slug/submit',  ctrl.publicSubmit);
 router.post('/public/:slug/abandon',          ctrl.publicAbandon);
 router.post('/public/:slug/recover/:cartId', ctrl.publicRecover);
+router.post('/public/:slug/oto-accept/:orderNumber', ctrl.publicOtoAccept);
 
 // ── Authenticated routes ──────────────────────────────────────────────────────
 router.use(authenticate);

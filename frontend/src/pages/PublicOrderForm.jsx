@@ -408,7 +408,13 @@ export default function PublicOrderForm() {
         navigate(`/pay/${data.orderNumber}`);
         return;
       }
-      // COD: redirect to thank you page if configured, otherwise show confirmation
+      // COD: if OTOs configured, go to upsell page first
+      const otos = form?.embedSettings?.otos ?? {};
+      if (Object.keys(otos).length > 0) {
+        navigate(`/upsell/${slug}/${data.orderNumber}`);
+        return;
+      }
+      // Otherwise redirect to thank you page or show confirmation
       const redirectUrl = form?.embedSettings?.successRedirectUrl;
       if (redirectUrl) {
         window.location.href = redirectUrl;

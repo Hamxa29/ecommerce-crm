@@ -401,7 +401,11 @@ export default function Orders() {
                   <td className="px-4 py-3">
                     <Link to={`/orders/${order.id}`} className="block group">
                       <span className="text-gray-900 font-medium group-hover:text-primary">{order.customerName}</span>
-                      {productLabel && <span className="block text-xs text-gray-400 mt-0.5 truncate max-w-[180px]">{productLabel}</span>}
+                      {productLabel && <span className="block text-xs text-gray-400 mt-0.5 truncate max-w-[180px]">{productLabel}
+                        {(order.items ?? []).some(i => i.isUpsell) && (
+                          <span className="inline-flex items-center ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-700">+Add-on</span>
+                        )}
+                      </span>}
                     </Link>
                   </td>
                   <td className="px-4 py-3"><PhoneLink phone={order.customerPhone} /></td>

@@ -229,6 +229,51 @@ function BumpConfigPanel({ productId, config, onChange }) {
   );
 }
 
+// ── OTO Config Panel ──────────────────────────────────────────────────────────
+function OtoConfigPanel({ productId, config, onChange }) {
+  const [open, setOpen] = useState(false);
+  const c = config ?? {};
+  const set = (key, val) => onChange(productId, { ...c, [key]: val });
+
+  return (
+    <div className="ml-8 mb-2 border border-purple-200 rounded-xl bg-purple-50/50 overflow-hidden">
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-medium text-purple-700 hover:bg-purple-100 transition">
+        <span>Configure upsell copy</span>
+        <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="px-4 pb-4 space-y-3 text-xs">
+          <div>
+            <label className="block text-gray-600 mb-1">Headline</label>
+            <input value={c.headline ?? ''} onChange={e => set('headline', e.target.value)}
+              placeholder="Special One-Time Offer: Product Name"
+              className="w-full border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400" />
+          </div>
+          <div>
+            <label className="block text-gray-600 mb-1">Accept Button Text</label>
+            <input value={c.ctaText ?? ''} onChange={e => set('ctaText', e.target.value)}
+              placeholder="Yes! Add To My Order →"
+              className="w-full border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400" />
+          </div>
+          <div>
+            <label className="block text-gray-600 mb-1">Decline Link Text</label>
+            <input value={c.declineText ?? ''} onChange={e => set('declineText', e.target.value)}
+              placeholder="No thanks, I don't want this"
+              className="w-full border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400" />
+          </div>
+          <div>
+            <label className="block text-gray-600 mb-1">Urgency Text (optional)</label>
+            <input value={c.urgencyText ?? ''} onChange={e => set('urgencyText', e.target.value)}
+              placeholder="This offer is only available right now"
+              className="w-full border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Form Builder Modal ───────────────────────────────────────────────────
 function FormModal({ form, onClose }) {
   const qc = useQueryClient();
@@ -254,7 +299,8 @@ function FormModal({ form, onClose }) {
     form?.products?.map(fp => ({ productId: fp.productId, isUpsell: fp.isUpsell })) ?? []
   );
   const [bumpConfigs, setBumpConfigs] = useState(savedSettings.bumps ?? {});
-  const [formType, setFormType] = useState(savedSettings.formType ?? 'order_form');
+  const [otoConfigs, setOtoConfigs] = useState(savedSettings.otos ?? {});
+  const [otoProductIds, setOtoProductIds] = useState(Object.keys(savedSettings.otos ?? {}));
   const [paymentMethod, setPaymentMethod] = useState(form?.paymentMethod ?? null);
   const [successRedirectUrl, setSuccessRedirectUrl] = useState(savedSettings.successRedirectUrl ?? '');
   const [error, setError] = useState('');
@@ -318,7 +364,7 @@ function FormModal({ form, onClose }) {
       slug: slug.trim(),
       paymentMethod: paymentMethod || null,
       products: selectedProducts,
-      embedSettings: { header, subheader, submitText, fields, customFields, bumps: bumpConfigs, formType, successRedirectUrl: successRedirectUrl.trim() || null },
+      embedSettings: { header, subheader, submitText, fields, customFields, bumps: bumpConfigs, otos: otoConfigs, successRedirectUrl: successRedirectUrl.trim() || null },
     });
   };
 
@@ -326,7 +372,7 @@ function FormModal({ form, onClose }) {
   const TAB = 'px-3 py-1.5 text-xs font-medium rounded-lg transition';
   const tabs = [
     { id: 'fields', label: 'Form Fields' },
-    { id: 'products', label: 'Products & Bumps' },
+    { id: 'products', label: 'Products' },
     { id: 'style', label: 'Style & Text' },
   ];
 
@@ -355,18 +401,6 @@ function FormModal({ form, onClose }) {
                   placeholder="posture-form" />
               </div>
             </div>
-          </div>
-
-          {/* Form type */}
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-medium text-gray-700 shrink-0">Form Type:</span>
-            {[{ value: 'order_form', label: 'Order Form' }, { value: 'upsell_form', label: 'Upsell Form' }].map(opt => (
-              <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer text-sm">
-                <input type="radio" name="formType" value={opt.value} checked={formType === opt.value}
-                  onChange={() => setFormType(opt.value)} className="accent-primary" />
-                {opt.label}
-              </label>
-            ))}
           </div>
 
           {/* Tabs */}
@@ -462,7 +496,7 @@ function FormModal({ form, onClose }) {
             </div>
           )}
 
-          {/* ── Tab: Products & Bumps ── */}
+          {/* ── Tab: Products ── */}
           {activeTab === 'products' && (
             <div className="py-3 space-y-3">
               <div className="text-xs text-gray-500 bg-blue-50 rounded-lg px-3 py-2">
@@ -511,6 +545,56 @@ function FormModal({ form, onClose }) {
                   })}
                 </div>
               )}
+
+              {/* ── Post-Order Upsell (OTO) ── */}
+              <div className="mt-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-semibold text-purple-700 uppercase tracking-wide">Post-Order Upsell (shown after customer places order)</span>
+                </div>
+                <div className="text-xs text-gray-500 bg-purple-50 rounded-lg px-3 py-2 mb-2">
+                  These products are shown one-by-one on a dedicated upsell page <em>after</em> the customer submits the form. The customer can accept or decline each one.
+                </div>
+                {products.length === 0 ? null : (
+                  <div className="space-y-1 border rounded-xl p-2">
+                    {products.map(p => {
+                      const isOto = otoProductIds.includes(p.id);
+                      return (
+                        <div key={p.id}>
+                          <div className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer ${isOto ? 'bg-purple-50 border border-purple-200' : 'hover:bg-gray-50 border border-transparent'}`}
+                            onClick={() => {
+                              if (isOto) {
+                                setOtoProductIds(ids => ids.filter(id => id !== p.id));
+                                setOtoConfigs(prev => { const n = {...prev}; delete n[p.id]; return n; });
+                              } else {
+                                setOtoProductIds(ids => [...ids, p.id]);
+                                setOtoConfigs(prev => ({
+                                  ...prev,
+                                  [p.id]: { headline: `Special One-Time Offer: ${p.name}`, ctaText: 'Yes! Add To My Order', declineText: 'No thanks, I don\'t want this', urgencyText: 'This offer is only available right now' }
+                                }));
+                              }
+                            }}>
+                            <input type="checkbox" readOnly checked={isOto} className="accent-purple-600" />
+                            <div className="flex-1">
+                              <span className="text-sm text-gray-800 font-medium">{p.name}</span>
+                              {p.pricingTiers?.length > 0 && (
+                                <span className="ml-2 text-xs text-gray-400">{p.pricingTiers.length} pricing option{p.pricingTiers.length !== 1 ? 's' : ''}</span>
+                              )}
+                            </div>
+                            {isOto && <span className="text-[10px] font-medium text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full">Upsell</span>}
+                          </div>
+                          {isOto && (
+                            <OtoConfigPanel
+                              productId={p.id}
+                              config={otoConfigs[p.id]}
+                              onChange={(id, cfg) => setOtoConfigs(prev => ({ ...prev, [id]: cfg }))}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

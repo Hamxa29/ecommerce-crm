@@ -69,10 +69,22 @@ export async function getEmbedCode(id) {
 // ── Public endpoints ─────────────────────────────────────────────────────────
 
 export async function getPublicForm(slug) {
-  return prisma.form.findUniqueOrThrow({
+  const form = await prisma.form.findUniqueOrThrow({
     where: { slug, status: true },
     include: { products: { include: { product: true }, orderBy: { displayOrder: 'asc' } } },
   });
+  // Enrich with OTO (post-order upsell) products
+  const otos = form.embedSettings?.otos ?? {};
+  const otoProductIds = Object.keys(otos);
+  if (otoProductIds.length) {
+    const otoProducts = await prisma.product.findMany({
+      where: { id: { in: otoProductIds } },
+    });
+    form.otoProducts = otoProducts;
+  } else {
+    form.otoProducts = [];
+  }
+  return form;
 }
 
 export async function recordHit(slug) {
@@ -220,4 +232,31 @@ export async function recoverCart(cartId) {
     where: { id: cartId },
     data: { recoveryStatus: 'recovered' },
   });
+}
+
+export async function acceptOto(slug, orderNumber, { productId, quantity, unitPrice, pricingTier, variation }) {
+  // Verify form exists
+  const form = await prisma.form.findUniqueOrThrow({ where: { slug, status: true } });
+  // Find order
+  const order = await prisma.order.findUniqueOrThrow({ where: { orderNumber } });
+  // Add OTO item to order (isUpsell = true)
+  const subtotal = unitPrice * quantity;
+  await prisma.orderItem.create({
+    data: {
+      orderId: order.id,
+      productId,
+      quantity,
+      unitPrice,
+      subtotal,
+      pricingTier: pricingTier ?? null,
+      variation: variation ?? null,
+      isUpsell: true,
+    },
+  });
+  // Update order totalAmount
+  await prisma.order.update({
+    where: { id: order.id },
+    data: { totalAmount: { increment: subtotal } },
+  });
+  return { ok: true };
 }

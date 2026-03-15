@@ -32,6 +32,7 @@ import WaAutomation from './pages/WaAutomation';
 import Settings from './pages/Settings';
 import PublicOrderForm from './pages/PublicOrderForm';
 import PublicPaymentPage from './pages/PublicPaymentPage';
+import PublicUpsellPage from './pages/PublicUpsellPage';
 import WaChatbot from './pages/WaChatbot';
 import Integrations from './pages/Integrations';
 
@@ -66,6 +67,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/form/:slug" element={<PublicOrderForm />} />
           <Route path="/pay/:orderNumber" element={<PublicPaymentPage />} />
+          <Route path="/upsell/:slug/:orderNumber" element={<PublicUpsellPage />} />
 
           <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />

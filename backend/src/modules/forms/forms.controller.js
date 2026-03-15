@@ -52,6 +52,12 @@ export async function publicRecover(req, res, next) {
   try { res.json(await svc.recoverCart(req.params.cartId)); } catch (e) { next(e); }
 }
 
+export async function publicOtoAccept(req, res, next) {
+  try {
+    res.json(await svc.acceptOto(req.params.slug, req.params.orderNumber, req.body));
+  } catch (e) { next(e); }
+}
+
 // ── Abandoned carts (authenticated) ──────────────────────────────────────────
 
 export async function listAbandoned(req, res, next) {
