@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/authStore';
 import { usersApi } from '@/api/users.api';
 import { NIGERIA_STATES } from '@/lib/constants';
@@ -64,9 +64,11 @@ const settingsApi = {
 
 // ── Store Settings Section ────────────────────────────────────────────────────
 function StoreSettingsSection() {
+  const qc = useQueryClient();
   const { data: stored, isLoading } = useQuery({ queryKey: ['store-settings'], queryFn: settingsApi.get });
   const [form, setForm] = useState(null);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
 
   // Init form from fetched data
   const values = form ?? stored ?? {};
@@ -74,7 +76,8 @@ function StoreSettingsSection() {
 
   const mutation = useMutation({
     mutationFn: settingsApi.update,
-    onSuccess: () => { setSaved(true); setForm(null); setTimeout(() => setSaved(false), 2500); },
+    onSuccess: () => { qc.invalidateQueries(['store-settings']); setSaved(true); setForm(null); setError(''); setTimeout(() => setSaved(false), 2500); },
+    onError: (e) => setError(e.response?.data?.error ?? 'Failed to save'),
   });
 
   if (isLoading) return <div className="bg-white border rounded-xl p-6 text-sm text-gray-400">Loading...</div>;
@@ -131,6 +134,7 @@ function StoreSettingsSection() {
         </div>
       </div>
 
+      {error && <p className="text-sm text-red-500">{error}</p>}
       <div className="flex items-center gap-3 pt-2">
         <button onClick={() => mutation.mutate(form ?? {})} disabled={mutation.isPending || !form}
           className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-60">
@@ -144,16 +148,19 @@ function StoreSettingsSection() {
 
 // ── Form & Order Settings ─────────────────────────────────────────────────────
 function OrderSettingsSection() {
+  const qc = useQueryClient();
   const { data: stored, isLoading } = useQuery({ queryKey: ['store-settings'], queryFn: settingsApi.get });
   const [form, setForm] = useState(null);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
 
   const values = form ?? stored ?? {};
   const set = (key, val) => setForm(prev => ({ ...(prev ?? stored ?? {}), [key]: val }));
 
   const mutation = useMutation({
     mutationFn: settingsApi.update,
-    onSuccess: () => { setSaved(true); setForm(null); setTimeout(() => setSaved(false), 2500); },
+    onSuccess: () => { qc.invalidateQueries(['store-settings']); setSaved(true); setForm(null); setError(''); setTimeout(() => setSaved(false), 2500); },
+    onError: (e) => setError(e.response?.data?.error ?? 'Failed to save'),
   });
 
   if (isLoading) return null;
@@ -247,6 +254,7 @@ function OrderSettingsSection() {
         )}
       </div>
 
+      {error && <p className="text-sm text-red-500">{error}</p>}
       <div className="flex items-center gap-3 pt-2">
         <button onClick={() => mutation.mutate(form ?? {})} disabled={mutation.isPending || !form}
           className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-60">
@@ -258,109 +266,46 @@ function OrderSettingsSection() {
   );
 }
 
-// ── Pending Order Automation ──────────────────────────────────────────────────
+// ── Auto-Delete Stale Orders ──────────────────────────────────────────────────
 function PendingOrderSection() {
+  const qc = useQueryClient();
   const { data: stored, isLoading } = useQuery({ queryKey: ['store-settings'], queryFn: settingsApi.get });
-  const { data: accounts } = useQuery({
-    queryKey: ['wa-accounts'],
-    queryFn: () => client.get('/whatsapp/accounts').then(r => r.data),
-  });
   const [form, setForm] = useState(null);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
 
   const values = form ?? stored ?? {};
   const set = (key, val) => setForm(prev => ({ ...(prev ?? stored ?? {}), [key]: val }));
 
   const mutation = useMutation({
     mutationFn: settingsApi.update,
-    onSuccess: () => { setSaved(true); setForm(null); setTimeout(() => setSaved(false), 2500); },
+    onSuccess: () => {
+      qc.invalidateQueries(['store-settings']);
+      setSaved(true); setForm(null); setError('');
+      setTimeout(() => setSaved(false), 2500);
+    },
+    onError: (e) => setError(e.response?.data?.error ?? 'Failed to save'),
   });
 
   if (isLoading) return null;
 
-  const connectedAccounts = (accounts ?? []).filter(a => a.status === 'CONNECTED');
-
-  const TEMPLATE_VARIABLES = [
-    '{{customername}}', '{{customerphone}}', '{{ordernumber}}', '{{productname}}', '{{brandname}}', '{{brandphone}}',
-  ];
-
   return (
-    <div className="bg-white border rounded-xl p-6 space-y-5">
-      <div className="flex items-center gap-3 mb-2">
-        <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    <div className="bg-white border rounded-xl p-6 space-y-4">
+      <div className="flex items-center gap-3 mb-1">
+        <div className="p-2 bg-red-50 text-red-500 rounded-lg">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
         </div>
         <div>
-          <h3 className="font-semibold text-gray-900">Pending Order Automation</h3>
-          <p className="text-xs text-gray-500 mt-0.5">Automatically follow up on orders that stay pending too long</p>
+          <h3 className="font-semibold text-gray-900">Auto-Delete Stale Pending Orders</h3>
+          <p className="text-xs text-gray-500 mt-0.5">Move orders to DELETED automatically after they've been pending too long</p>
         </div>
       </div>
 
-      {/* Reminder section */}
-      <div className="space-y-4 border rounded-lg p-4 bg-orange-50/40">
+      <div className="border rounded-lg p-4 bg-red-50/40 space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-800">Send reminder after X days</p>
-            <p className="text-xs text-gray-500 mt-0.5">Send a WhatsApp message once to customers whose order is still pending</p>
-          </div>
-          <label className="relative flex-shrink-0">
-            <input type="checkbox" checked={!!values.pendingReminderEnabled} onChange={e => set('pendingReminderEnabled', e.target.checked)} className="sr-only peer" />
-            <div className="w-10 h-6 bg-gray-200 rounded-full peer-checked:bg-primary transition-colors" />
-            <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4" />
-          </label>
-        </div>
-
-        {values.pendingReminderEnabled && (
-          <div className="space-y-3 pt-1">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Days before reminder</label>
-                <input type="number" min="1" max="30"
-                  value={values.pendingReminderDays ?? 3}
-                  onChange={e => set('pendingReminderDays', Number(e.target.value))}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">WhatsApp account</label>
-                <select
-                  value={values.pendingReminderAccountId ?? ''}
-                  onChange={e => set('pendingReminderAccountId', e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
-                  <option value="">Select account</option>
-                  {connectedAccounts.map(a => (
-                    <option key={a.id} value={a.id}>{a.displayName ?? a.instanceName}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Message</label>
-              <textarea
-                value={values.pendingReminderMessage ?? ''}
-                onChange={e => set('pendingReminderMessage', e.target.value)}
-                rows={4}
-                placeholder={`Hi {{customername}}! 👋 We noticed your order *#{{ordernumber}}* is still pending.\n\nIs there anything we can help with? We'd love to get this sorted for you! 😊`}
-                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono text-xs" />
-              <div className="flex flex-wrap gap-1 mt-1.5">
-                {TEMPLATE_VARIABLES.map(v => (
-                  <button key={v} type="button"
-                    onClick={() => set('pendingReminderMessage', (values.pendingReminderMessage ?? '') + v)}
-                    className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded font-mono">
-                    {v}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Auto-delete section */}
-      <div className="space-y-3 border rounded-lg p-4 bg-red-50/40">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-800">Auto-delete stale pending orders</p>
-            <p className="text-xs text-gray-500 mt-0.5">Move orders to DELETED after they've been pending for too long with no action</p>
+            <p className="text-sm font-medium text-gray-800">Enable auto-delete</p>
+            <p className="text-xs text-gray-500 mt-0.5">Orders pending beyond the threshold will be moved to DELETED each hour</p>
           </div>
           <label className="relative flex-shrink-0">
             <input type="checkbox" checked={!!values.pendingAutoDeleteEnabled} onChange={e => set('pendingAutoDeleteEnabled', e.target.checked)} className="sr-only peer" />
@@ -377,15 +322,16 @@ function PendingOrderSection() {
                 onChange={e => set('pendingAutoDeleteDays', Number(e.target.value))}
                 className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
             </div>
-            <p className="text-xs text-red-600 mt-4">Orders pending for more than {values.pendingAutoDeleteDays ?? 30} days will be moved to DELETED automatically each hour.</p>
+            <p className="text-xs text-red-600 mt-4">Orders pending for more than {values.pendingAutoDeleteDays ?? 30} days will be auto-deleted hourly.</p>
           </div>
         )}
       </div>
 
-      <div className="flex items-center gap-3 pt-2">
+      {error && <p className="text-sm text-red-500">{error}</p>}
+      <div className="flex items-center gap-3 pt-1">
         <button onClick={() => mutation.mutate(form ?? {})} disabled={mutation.isPending || !form}
           className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-60">
-          {mutation.isPending ? 'Saving...' : 'Save Pending Order Settings'}
+          {mutation.isPending ? 'Saving...' : 'Save'}
         </button>
         {saved && <span className="flex items-center gap-1.5 text-sm text-green-600"><CheckCircle size={14} /> Saved</span>}
       </div>

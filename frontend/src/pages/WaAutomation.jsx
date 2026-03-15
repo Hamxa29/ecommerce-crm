@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import client from '@/api/client';
+import { CheckCircle } from 'lucide-react';
 import { ORDER_STATUSES } from '@/lib/constants';
 import { STARTER_TEMPLATES } from './WaTemplates';
 import { Plus, Pencil, Trash2, Loader2, X, Zap, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, Save } from 'lucide-react';
@@ -312,6 +313,108 @@ export default function WaAutomation() {
           onClose={() => { setShowAdd(false); setEditRule(null); }}
         />
       )}
+
+      <PendingReminderSection />
+    </div>
+  );
+}
+
+// ── Pending Order Reminder ────────────────────────────────────────────────────
+function PendingReminderSection() {
+  const qc = useQueryClient();
+  const { data: stored, isLoading } = useQuery({
+    queryKey: ['store-settings'],
+    queryFn: () => client.get('/settings').then(r => r.data),
+  });
+  const { data: accounts = [] } = useQuery({
+    queryKey: ['wa-accounts'],
+    queryFn: () => client.get('/whatsapp/accounts').then(r => r.data),
+  });
+  const [form, setForm] = useState(null);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
+
+  const values = form ?? stored ?? {};
+  const set = (key, val) => setForm(prev => ({ ...(prev ?? stored ?? {}), [key]: val }));
+
+  const mutation = useMutation({
+    mutationFn: (data) => client.put('/settings', data).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries(['store-settings']);
+      setSaved(true);
+      setForm(null);
+      setError('');
+      setTimeout(() => setSaved(false), 2500);
+    },
+    onError: (e) => setError(e.response?.data?.error ?? 'Failed to save'),
+  });
+
+  if (isLoading) return null;
+
+  const connectedAccounts = accounts.filter(a => a.status === 'CONNECTED');
+  const VARS = ['{{customername}}', '{{customerphone}}', '{{ordernumber}}', '{{productname}}', '{{brandname}}', '{{brandphone}}'];
+
+  return (
+    <div className="bg-white border rounded-xl p-6 space-y-4 mt-2">
+      <div className="flex items-center gap-3">
+        <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <div>
+          <h3 className="font-semibold text-gray-900">Pending Order Reminder</h3>
+          <p className="text-xs text-gray-500 mt-0.5">Send a WhatsApp message to customers whose order has been pending too long</p>
+        </div>
+        <label className="relative ml-auto flex-shrink-0">
+          <input type="checkbox" checked={!!values.pendingReminderEnabled} onChange={e => set('pendingReminderEnabled', e.target.checked)} className="sr-only peer" />
+          <div className="w-10 h-6 bg-gray-200 rounded-full peer-checked:bg-primary transition-colors" />
+          <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4" />
+        </label>
+      </div>
+
+      {values.pendingReminderEnabled && (
+        <div className="space-y-3 border-t pt-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Send after (days pending)</label>
+              <input type="number" min="1" max="30"
+                value={values.pendingReminderDays ?? 3}
+                onChange={e => set('pendingReminderDays', Number(e.target.value))}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">WhatsApp account</label>
+              <select value={values.pendingReminderAccountId ?? ''} onChange={e => set('pendingReminderAccountId', e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+                <option value="">Select account</option>
+                {connectedAccounts.map(a => <option key={a.id} value={a.id}>{a.displayName ?? a.instanceName}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Message</label>
+            <textarea value={values.pendingReminderMessage ?? ''} onChange={e => set('pendingReminderMessage', e.target.value)}
+              rows={4}
+              placeholder={`Hi {{customername}}! 👋 We noticed your order *#{{ordernumber}}* is still pending.\n\nIs there anything we can help with? 😊`}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 font-mono text-xs" />
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {VARS.map(v => (
+                <button key={v} type="button"
+                  onClick={() => set('pendingReminderMessage', (values.pendingReminderMessage ?? '') + v)}
+                  className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded font-mono">{v}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {error && <p className="text-sm text-red-500">{error}</p>}
+      <div className="flex items-center gap-3 pt-1">
+        <button onClick={() => mutation.mutate(form ?? {})} disabled={mutation.isPending || !form}
+          className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-60">
+          {mutation.isPending ? 'Saving...' : 'Save Reminder Settings'}
+        </button>
+        {saved && <span className="flex items-center gap-1.5 text-sm text-green-600"><CheckCircle size={14} /> Saved</span>}
+      </div>
     </div>
   );
 }
