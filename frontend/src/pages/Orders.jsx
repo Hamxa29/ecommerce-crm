@@ -208,7 +208,7 @@ export default function Orders() {
     limit: 50,
   };
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['orders', params],
     queryFn: () => ordersApi.list(params),
   });
@@ -330,8 +330,8 @@ export default function Orders() {
             className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
         </div>
         <StateDropdown value={stateFilter} onChange={v => { setStateFilter(v); setPage(1); }} />
-        <button onClick={() => refetch()} disabled={isLoading} className="p-2 border rounded-lg hover:bg-gray-50 text-gray-500 disabled:opacity-50">
-          <RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} />
+        <button onClick={() => refetch()} disabled={isFetching} className="p-2 border rounded-lg hover:bg-gray-50 text-gray-500 disabled:opacity-50" title="Refresh orders">
+          <RefreshCw size={15} className={isFetching ? 'animate-spin' : ''} />
         </button>
       </div>
 

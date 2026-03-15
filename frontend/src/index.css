@@ -45,6 +45,90 @@
   }
 }
 
+/* ── Dark mode variables ─────────────────────────────────────────────────── */
+html.dark {
+  --background: 222 47% 7%;
+  --foreground: 210 40% 92%;
+  --card: 222 47% 10%;
+  --card-foreground: 210 40% 92%;
+  --popover: 222 47% 10%;
+  --popover-foreground: 210 40% 92%;
+  --primary: 221.2 83.2% 53.3%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 217 32% 17%;
+  --secondary-foreground: 210 40% 92%;
+  --muted: 217 32% 17%;
+  --muted-foreground: 215 20% 55%;
+  --accent: 217 32% 17%;
+  --accent-foreground: 210 40% 92%;
+  --destructive: 0 62% 50%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217 32% 20%;
+  --input: 217 32% 20%;
+  --ring: 221.2 83.2% 53.3%;
+  /* Sidebar stays dark — intentionally unchanged */
+  --sidebar-background: 222.2 47.4% 11.2%;
+  --sidebar-foreground: 210 40% 98%;
+  --sidebar-primary: 221.2 83.2% 53.3%;
+  --sidebar-primary-foreground: 210 40% 98%;
+  --sidebar-accent: 217.2 32.6% 17.5%;
+  --sidebar-accent-foreground: 210 40% 98%;
+  --sidebar-border: 217.2 32.6% 17.5%;
+  --sidebar-ring: 221.2 83.2% 53.3%;
+}
+
+/* ── Bulk overrides for hardcoded gray classes in main content ────────────── */
+/* Scoped to .main-content so sidebar is unaffected */
+html.dark .main-content .bg-white,
+html.dark .main-content header.sticky { background-color: hsl(222 47% 10%) !important; }
+
+html.dark .main-content .bg-gray-50,
+html.dark .main-content .bg-gray-50\/50 { background-color: hsl(222 47% 8%) !important; }
+
+html.dark .main-content .bg-gray-100 { background-color: hsl(222 47% 14%) !important; }
+
+html.dark .main-content .bg-gray-200 { background-color: hsl(222 47% 18%) !important; }
+
+html.dark .main-content .text-gray-900,
+html.dark .main-content .text-gray-800 { color: hsl(210 40% 92%) !important; }
+
+html.dark .main-content .text-gray-700 { color: hsl(210 35% 80%) !important; }
+
+html.dark .main-content .text-gray-600 { color: hsl(210 30% 68%) !important; }
+
+html.dark .main-content .text-gray-500 { color: hsl(210 20% 55%) !important; }
+
+html.dark .main-content .text-gray-400 { color: hsl(210 15% 45%) !important; }
+
+html.dark .main-content .border,
+html.dark .main-content .border-gray-100,
+html.dark .main-content .border-gray-200,
+html.dark .main-content .border-gray-300 { border-color: hsl(217 32% 22%) !important; }
+
+html.dark .main-content .divide-gray-100 > * + *,
+html.dark .main-content .divide-gray-200 > * + * { border-color: hsl(217 32% 22%) !important; }
+
+html.dark .main-content .hover\:bg-gray-50:hover,
+html.dark .main-content .hover\:bg-gray-100:hover { background-color: hsl(222 47% 14%) !important; }
+
+html.dark .main-content .shadow-sm { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.3) !important; }
+
+html.dark .main-content input,
+html.dark .main-content textarea,
+html.dark .main-content select {
+  background-color: hsl(222 47% 13%) !important;
+  color: hsl(210 40% 90%) !important;
+  border-color: hsl(217 32% 24%) !important;
+}
+
+html.dark .main-content input::placeholder,
+html.dark .main-content textarea::placeholder { color: hsl(215 20% 45%) !important; }
+
+html.dark .main-content table thead tr,
+html.dark .main-content .bg-gray-50.border-b { background-color: hsl(222 47% 12%) !important; }
+
+html.dark .main-content tr:hover { background-color: hsl(222 47% 13%) !important; }
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
