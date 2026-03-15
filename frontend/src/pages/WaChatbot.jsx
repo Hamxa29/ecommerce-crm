@@ -34,6 +34,68 @@ function CopyButton({ text }) {
   );
 }
 
+// ── API Key field with masked display ─────────────────────────────────────────
+function ApiKeyField({ provider, value, onChange, keySet }) {
+  const [replacing, setReplacing] = useState(false);
+  const placeholder = provider === 'openai' ? 'sk-...' : 'sk-ant-...';
+
+  if (keySet && !replacing) {
+    return (
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+          {provider === 'openai' ? 'OpenAI' : 'Anthropic'} API Key
+        </label>
+        <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2.5 bg-gray-50">
+          <span className="flex-1 font-mono text-sm text-gray-500 tracking-widest">
+            {placeholder.split('').slice(0, placeholder.indexOf('.')).join('')}••••••••••••••••••••••••••
+          </span>
+          <span className="text-xs bg-green-100 text-green-700 font-medium px-2 py-0.5 rounded-full">Active</span>
+          <button
+            type="button"
+            onClick={() => setReplacing(true)}
+            className="text-xs text-primary font-medium hover:underline ml-1"
+          >
+            Replace
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 mt-1">Key is saved securely. Click Replace to update it.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+        {provider === 'openai' ? 'OpenAI' : 'Anthropic'} API Key
+        {keySet && <span className="text-gray-400 font-normal ml-1">(replacing existing key)</span>}
+      </label>
+      <div className="flex gap-2">
+        <input
+          type="password"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder={placeholder}
+          autoComplete="off"
+          autoFocus={replacing}
+          className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary font-mono"
+        />
+        {replacing && (
+          <button
+            type="button"
+            onClick={() => { setReplacing(false); onChange(''); }}
+            className="px-3 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+      {!keySet && (
+        <p className="text-xs text-amber-600 font-medium mt-1">No key saved yet — paste your key above and save.</p>
+      )}
+    </div>
+  );
+}
+
 // ── Settings panel ────────────────────────────────────────────────────────────
 function ChatbotSettings() {
   const qc = useQueryClient();
@@ -127,26 +189,12 @@ function ChatbotSettings() {
         </div>
 
         {/* API Key */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            {form.chatbotProvider === 'openai' ? 'OpenAI' : 'Anthropic'} API Key
-          </label>
-          <input
-            type="password"
-            value={form.chatbotApiKey}
-            onChange={e => set('chatbotApiKey', e.target.value)}
-            placeholder={form.chatbotProvider === 'openai' ? 'sk-...' : 'sk-ant-...'}
-            autoComplete="off"
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary font-mono"
-          />
-          <p className="text-xs text-gray-400 mt-1">
-            {settings?.chatbotApiKeySet
-              ? <span className="text-green-600 font-medium">Key saved.</span>
-              : <span className="text-amber-600 font-medium">No key saved yet.</span>
-            }
-            {' '}Leave blank to keep the existing key. The key is stored securely and never returned to the browser.
-          </p>
-        </div>
+        <ApiKeyField
+          provider={form.chatbotProvider}
+          value={form.chatbotApiKey}
+          onChange={v => set('chatbotApiKey', v)}
+          keySet={settings?.chatbotApiKeySet}
+        />
 
         {/* Account selector */}
         <div>
