@@ -11,9 +11,11 @@ export async function getSettings() {
 }
 
 export async function updateSettings(data) {
+  // Strip read-only / auto-managed fields before writing
+  const { id, createdAt, updatedAt, ...clean } = data;
   return prisma.storeSettings.upsert({
     where: { id: SINGLETON_ID },
-    update: data,
-    create: { id: SINGLETON_ID, ...data },
+    update: clean,
+    create: { id: SINGLETON_ID, ...clean },
   });
 }
