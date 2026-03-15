@@ -187,6 +187,7 @@ export default function Orders() {
 
   // Remit modal state
   const [remitModal, setRemitModal] = useState(false);
+  const [bulkRemitFee, setBulkRemitFee] = useState('');
 
   const importRef = useRef(null);
 
@@ -553,8 +554,8 @@ export default function Orders() {
       {remitModal && (() => {
         const selectedOrders = orders.filter(o => selectedIds.includes(o.id));
         const totalCollected = selectedOrders.reduce((s, o) => s + Number(o.totalAmount ?? 0), 0);
-        const totalFees      = selectedOrders.reduce((s, o) => s + Number(o.deliveryFee ?? 0), 0);
-        const netRemitted    = totalCollected - totalFees;
+        const enteredFee     = parseFloat(bulkRemitFee) || 0;
+        const netRemitted    = totalCollected - enteredFee;
         const fmt = (n) => `₦${Number(n).toLocaleString('en-NG')}`;
 
         return (
@@ -565,18 +566,37 @@ export default function Orders() {
               </h3>
               <p className="text-xs text-gray-500">{selectedOrders.length} order{selectedOrders.length !== 1 ? 's' : ''} selected</p>
 
-              <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Total collected from customers</span>
-                  <span className="font-medium">{fmt(totalCollected)}</span>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs text-gray-500 font-medium mb-1">Total collected from customers</p>
+                  <p className="text-lg font-bold text-gray-900">{fmt(totalCollected)}</p>
                 </div>
-                <div className="flex justify-between text-red-600">
-                  <span>Agent delivery fees (deducted)</span>
-                  <span>– {fmt(totalFees)}</span>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium block mb-1">
+                    Agent delivery charge (₦)
+                  </label>
+                  <input
+                    type="number"
+                    value={bulkRemitFee}
+                    onChange={e => setBulkRemitFee(e.target.value)}
+                    placeholder="Enter total agent charge"
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    autoFocus
+                  />
                 </div>
-                <div className="flex justify-between border-t pt-2 font-bold text-gray-900 text-base">
-                  <span>Amount remitted to us</span>
-                  <span className="text-green-700">{fmt(netRemitted)}</span>
+                <div className="bg-gray-50 border rounded-lg p-3 space-y-2 text-sm">
+                  <div className="flex justify-between text-gray-600">
+                    <span>Collected from customers</span>
+                    <span className="font-medium">{fmt(totalCollected)}</span>
+                  </div>
+                  <div className="flex justify-between text-red-600">
+                    <span>Agent delivery charge</span>
+                    <span>– {fmt(enteredFee)}</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2 font-bold text-green-700">
+                    <span>Net remitted to store</span>
+                    <span>{fmt(netRemitted)}</span>
+                  </div>
                 </div>
               </div>
 
@@ -587,11 +607,12 @@ export default function Orders() {
               )}
 
               <div className="flex gap-3">
-                <button onClick={() => setRemitModal(false)}
+                <button onClick={() => { setRemitModal(false); setBulkRemitFee(''); }}
                   className="flex-1 border rounded-lg py-2 text-sm hover:bg-gray-50">Cancel</button>
                 <button onClick={() => {
                   setRemitModal(false);
-                  bulkMutation.mutate({ action: 'remit', payload: {} });
+                  setBulkRemitFee('');
+                  bulkMutation.mutate({ action: 'remit', payload: { deliveryFee: enteredFee } });
                 }}
                   className="flex-1 bg-green-600 text-white rounded-lg py-2 text-sm font-semibold hover:bg-green-700">
                   Confirm Remittance
