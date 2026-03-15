@@ -289,13 +289,15 @@ function getOpenaiKey(settings) {
   return settings.chatbotOpenaiKey || process.env.OPENAI_API_KEY;
 }
 
-// ── Detect credit/quota exhaustion errors ─────────────────────────────────────
+// ── Detect credit/quota exhaustion (warrants fallback to other provider) ──────
+// 401 = wrong key → do NOT fallback (tell user to fix the key)
+// 402/429 = out of credits / rate limited → fallback to other provider
 function isCreditExhausted(err) {
   const msg  = (err.message ?? '').toLowerCase();
   const code = err.status ?? err.statusCode ?? 0;
-  return code === 401 || code === 402 || code === 429
-    || msg.includes('credit') || msg.includes('quota')
-    || msg.includes('billing') || msg.includes('insufficient')
+  return code === 402 || code === 429
+    || msg.includes('credit balance') || msg.includes('quota')
+    || msg.includes('billing') || msg.includes('insufficient_quota')
     || msg.includes('overloaded') || msg.includes('rate limit');
 }
 
@@ -452,8 +454,13 @@ ${settings.chatbotSystemPrompt ? `\nADDITIONAL INSTRUCTIONS:\n${settings.chatbot
         finalResponse = await runAnthropicLoop(systemPrompt, updatedMessages, model, phone, settings, instanceName);
       }
     } catch (primaryErr) {
+      const code = primaryErr.status ?? primaryErr.statusCode ?? 0;
+      if (code === 401) {
+        // Wrong API key — don't fallback, surface a clear message
+        throw new Error(`${provider === 'openai' ? 'OpenAI' : 'Anthropic'} API key is invalid or expired. Please replace it in AI Chatbot settings.`);
+      }
       if (isCreditExhausted(primaryErr)) {
-        console.warn(`[Chatbot] ${provider} failed (${primaryErr.message}) — switching to fallback provider`);
+        console.warn(`[Chatbot] ${provider} credits exhausted — switching to fallback provider`);
         try {
           if (provider === 'openai') {
             finalResponse = await runAnthropicLoop(systemPrompt, updatedMessages, model, phone, settings, instanceName);
