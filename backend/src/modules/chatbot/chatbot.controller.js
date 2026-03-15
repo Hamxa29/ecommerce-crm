@@ -2,6 +2,46 @@ import * as svc from './chatbot.service.js';
 import { getSettings } from '../settings/settings.service.js';
 import { prisma } from '../../config/database.js';
 
+// ── Check if a human/staff replied in Chatwoot since a given timestamp ────────
+async function hasStaffRepliedInChatwoot(phone, sinceMs) {
+  const url   = process.env.CHATWOOT_URL;
+  const token = process.env.CHATWOOT_TOKEN;
+  const acct  = process.env.CHATWOOT_ACCOUNT_ID;
+  if (!url || !token || !acct) return false;
+
+  try {
+    // Search for contact by phone number
+    const searchRes = await fetch(
+      `${url}/api/v1/accounts/${acct}/contacts/search?q=${encodeURIComponent(phone)}&include_contacts=true`,
+      { headers: { api_access_token: token } }
+    );
+    if (!searchRes.ok) return false;
+    const searchData = await searchRes.json();
+    const contacts = searchData.payload?.contacts ?? searchData.payload ?? [];
+    if (!contacts.length) return false;
+
+    // Get conversations for this contact
+    const convRes = await fetch(
+      `${url}/api/v1/accounts/${acct}/contacts/${contacts[0].id}/conversations`,
+      { headers: { api_access_token: token } }
+    );
+    if (!convRes.ok) return false;
+    const convData = await convRes.json();
+    const conversations = convData.payload?.conversations ?? convData.payload ?? [];
+    if (!conversations.length) return false;
+
+    // Check the latest conversation for any outgoing (agent) message after sinceMs
+    const latestConv = conversations[0];
+    const messages   = latestConv.messages ?? [];
+
+    // message_type 1 = outgoing (agent reply), created_at is a Unix timestamp (seconds)
+    return messages.some(m => m.message_type === 1 && m.created_at * 1000 > sinceMs);
+  } catch (e) {
+    console.error('[Chatbot] Chatwoot staff check failed:', e.message);
+    return false; // if check fails, let bot reply rather than stay silent forever
+  }
+}
+
 // ── Evolution API incoming webhook ────────────────────────────────────────────
 export async function receiveChatbotWebhook(req, res) {
   // Always respond 200 immediately — Evolution API expects a fast ack
@@ -46,7 +86,6 @@ export async function receiveChatbotWebhook(req, res) {
     if (!settings.chatbotEnabled) return;
 
     if (settings.chatbotAccountId) {
-      // Verify this webhook is for the configured chatbot account
       const account = await prisma.whatsappAccount.findUnique({
         where: { id: settings.chatbotAccountId },
         select: { instanceName: true },
@@ -54,16 +93,31 @@ export async function receiveChatbotWebhook(req, res) {
       if (account && instanceName && account.instanceName !== instanceName) return;
     }
 
-    // Process asynchronously (already responded 200)
-    svc.processMessage(phone, pushName, text.trim(), instanceName, msgId).catch(e =>
-      console.error('[Chatbot Webhook] processMessage failed:', e.message)
-    );
+    // ── Staff-first delay ────────────────────────────────────────────────────
+    // Wait N seconds to give staff a chance to reply from Chatwoot first.
+    // If staff has already replied by then, the bot stays silent.
+    const delaySecs = parseInt(process.env.CHATBOT_STAFF_DELAY_SECONDS ?? '90');
+    const messageReceivedAt = Date.now();
+
+    setTimeout(async () => {
+      try {
+        const staffReplied = await hasStaffRepliedInChatwoot(phone, messageReceivedAt);
+        if (staffReplied) {
+          console.log(`[Chatbot] Staff already replied to ${phone} — bot staying silent`);
+          return;
+        }
+        await svc.processMessage(phone, pushName, text.trim(), instanceName, msgId);
+      } catch (e) {
+        console.error('[Chatbot Webhook] Delayed processMessage failed:', e.message);
+      }
+    }, delaySecs * 1000);
+
   } catch (e) {
     console.error('[Chatbot Webhook] parse error:', e.message);
   }
 }
 
-// ── Admin: test the bot from the CRM ─────────────────────────────────────────
+// ── Admin: test the bot from the CRM (no delay, no Chatwoot check) ────────────
 export async function testBot(req, res, next) {
   try {
     const { phone, message } = req.body;
