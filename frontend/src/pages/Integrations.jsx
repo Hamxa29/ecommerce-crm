@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Copy, Check, RefreshCw, Webhook, Key, Zap, Globe } from 'lucide-react';
+import { Copy, Check, RefreshCw, Webhook, Key, Zap, Globe, Sheet, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import client from '@/api/client';
 
 function CopyButton({ text }) {
@@ -29,6 +29,162 @@ function Panel({ children, className = '' }) {
   );
 }
 
+const APPS_SCRIPT_CODE = `function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var sheetName = data.sheetName || 'Orders';
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetName);
+      var headers = ['Order #','Customer','Phone','Phone 2','State','City','Address',
+        'Products','Amount','Delivery Fee','Status','Payment Method','Payment Status',
+        'Delivery Agent','Staff','Source','Notes','Comment','Date'];
+      sheet.appendRow(headers);
+      sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+    }
+    if (data.action === 'append') {
+      sheet.appendRow(data.row);
+    } else if (data.action === 'update') {
+      var values = sheet.getDataRange().getValues();
+      for (var i = 1; i < values.length; i++) {
+        if (String(values[i][0]) === String(data.orderNumber)) {
+          sheet.getRange(i + 1, 1, 1, data.row.length).setValues([data.row]);
+          return ContentService.createTextOutput('updated');
+        }
+      }
+      sheet.appendRow(data.row);
+    }
+    return ContentService.createTextOutput('ok');
+  } catch(err) {
+    return ContentService.createTextOutput('error: ' + err.message);
+  }
+}`;
+
+function GoogleSheetsPanel({ settings, onSave }) {
+  const [enabled, setEnabled] = useState(settings?.googleSheetsEnabled ?? false);
+  const [url, setUrl] = useState(settings?.googleSheetsWebhookUrl ?? '');
+  const [sheetName, setSheetName] = useState(settings?.googleSheetsSheetName ?? 'Orders');
+  const [showScript, setShowScript] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await onSave({ googleSheetsEnabled: enabled, googleSheetsWebhookUrl: url, googleSheetsSheetName: sheetName });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } finally { setSaving(false); }
+  };
+
+  const test = async () => {
+    if (!url) return;
+    setTesting(true);
+    setTestResult(null);
+    try {
+      await client.post('/settings/test-google-sheets', { url, sheetName });
+      setTestResult('success');
+    } catch {
+      setTestResult('error');
+    } finally { setTesting(false); }
+  };
+
+  return (
+    <Panel>
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center">
+          <span className="text-lg">📊</span>
+        </div>
+        <div className="flex-1">
+          <h3 className="font-semibold text-gray-900">Google Sheets Sync</h3>
+          <p className="text-sm text-gray-500">Automatically push every order and status update to your spreadsheet</p>
+        </div>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <div className="relative">
+            <input type="checkbox" className="sr-only peer" checked={enabled} onChange={e => setEnabled(e.target.checked)} />
+            <div className="w-9 h-5 bg-gray-200 peer-checked:bg-primary rounded-full transition-colors" />
+            <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4" />
+          </div>
+        </label>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1.5">Apps Script Webhook URL</label>
+          <div className="flex gap-2">
+            <input
+              value={url}
+              onChange={e => setUrl(e.target.value)}
+              placeholder="https://script.google.com/macros/s/.../exec"
+              className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            <button onClick={test} disabled={!url || testing}
+              className="px-3 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 flex items-center gap-1.5 whitespace-nowrap">
+              {testing ? <Loader2 size={13} className="animate-spin" /> : null}
+              Test
+            </button>
+          </div>
+          {testResult === 'success' && <p className="text-xs text-green-600 mt-1">✓ Connected successfully</p>}
+          {testResult === 'error' && <p className="text-xs text-red-500 mt-1">✗ Could not reach that URL — check the script is deployed as a web app</p>}
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1.5">Sheet / Tab Name</label>
+          <input
+            value={sheetName}
+            onChange={e => setSheetName(e.target.value)}
+            placeholder="Orders"
+            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          <p className="text-xs text-gray-400 mt-1">The tab inside your spreadsheet where orders will be written. Defaults to "Orders".</p>
+        </div>
+
+        <button onClick={save} disabled={saving}
+          className="w-full bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
+          {saving ? <Loader2 size={13} className="animate-spin" /> : saved ? <Check size={13} /> : null}
+          {saved ? 'Saved!' : 'Save Settings'}
+        </button>
+      </div>
+
+      <div className="mt-5 border-t pt-4">
+        <button onClick={() => setShowScript(s => !s)}
+          className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-primary w-full">
+          {showScript ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+          How to set up Google Sheets (step-by-step)
+        </button>
+        {showScript && (
+          <div className="mt-4 space-y-3 text-sm text-gray-600">
+            <ol className="space-y-2 list-decimal list-inside text-xs leading-relaxed">
+              <li>Open your Google Sheet (or create a new one)</li>
+              <li>Click <strong>Extensions → Apps Script</strong></li>
+              <li>Delete the default code, paste the script below</li>
+              <li>Click <strong>Deploy → New deployment</strong></li>
+              <li>Type: <strong>Web app</strong> · Execute as: <strong>Me</strong> · Who has access: <strong>Anyone</strong></li>
+              <li>Click <strong>Deploy</strong>, copy the URL and paste it above</li>
+              <li>That's it — every new order and status change will sync automatically</li>
+            </ol>
+            <div className="relative bg-gray-50 rounded-xl border">
+              <div className="flex items-center justify-between px-4 py-2.5 border-b">
+                <span className="text-xs font-mono font-medium text-gray-500">Google Apps Script</span>
+                <button onClick={() => { navigator.clipboard.writeText(APPS_SCRIPT_CODE); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                  className="flex items-center gap-1.5 text-xs text-primary hover:underline">
+                  {copied ? <Check size={11} /> : <Copy size={11} />}
+                  {copied ? 'Copied!' : 'Copy code'}
+                </button>
+              </div>
+              <pre className="p-4 text-xs font-mono text-gray-700 overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap">{APPS_SCRIPT_CODE}</pre>
+            </div>
+          </div>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
 export default function Integrations() {
   const qc = useQueryClient();
 
@@ -46,6 +202,8 @@ export default function Integrations() {
     mutationFn: (keyId) => client.post(`/api-keys/${keyId}/regenerate`).then(r => r.data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['api-keys'] }),
   });
+
+  const saveSettings = (data) => client.put('/settings', data).then(() => qc.invalidateQueries({ queryKey: ['settings'] }));
 
   const storeUrl = window.location.origin;
   const webhookUrl = `${import.meta.env.VITE_API_URL ?? ''}/webhooks`;
@@ -140,6 +298,9 @@ export default function Integrations() {
           <a href="/settings" className="text-primary underline underline-offset-2">Settings</a>.
         </p>
       </Panel>
+
+      {/* Google Sheets */}
+      <GoogleSheetsPanel settings={settings} onSave={saveSettings} />
 
       {/* API Keys */}
       <Panel>

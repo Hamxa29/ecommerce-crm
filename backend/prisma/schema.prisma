@@ -416,6 +416,11 @@ model StoreSettings {
   logisticsProvider    String?
   logisticsApiKey      String?
 
+  // Google Sheets sync
+  googleSheetsEnabled    Boolean @default(false)
+  googleSheetsWebhookUrl String?
+  googleSheetsSheetName  String  @default("Orders")
+
   // AI Chatbot
   chatbotEnabled       Boolean @default(false)
   chatbotAccountId     String?  // which WhatsappAccount handles incoming chats

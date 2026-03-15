@@ -74,10 +74,12 @@ function UserModal({ user, onClose }) {
     mutation.mutate(payload);
   };
 
+  const autoCompleteFor = { name: 'off', email: 'off', whatsappPhone: 'tel', password: 'new-password' };
   const inp = (key, label, type = 'text', placeholder = '') => (
     <div>
       <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>
       <input type={type} value={form[key]} placeholder={placeholder}
+        autoComplete={autoCompleteFor[key] ?? 'off'}
         onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
         className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
     </div>

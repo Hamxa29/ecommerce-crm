@@ -6,6 +6,7 @@ import { sendExcel } from '../../utils/excelExport.js';
 import { sendNewOrderNotification, sendOrderStatusEmail } from '../../utils/emailNotification.js';
 import { sendText } from '../../config/evolution.js';
 import { normalizePhone } from '../../utils/phoneNormalizer.js';
+import { syncOrderToSheets } from '../../utils/googleSheets.js';
 
 export async function listOrders(query) {
   const { skip, take, page, limit } = parsePagination(query);
@@ -128,6 +129,7 @@ export async function createOrder(data, actorId) {
   if (data.source !== 'import') {
     sendNewOrderNotification(order).catch(e => console.error('[Orders] Notification email error:', e.message));
   }
+  syncOrderToSheets(order, 'append').catch(() => {});
   return order;
 }
 
@@ -244,6 +246,9 @@ export async function changeOrderStatus(id, newStatus, actorId, note, scheduledD
   if (actorId) {
     await writeAuditLog({ userId: actorId, action: 'order.status_change', entityType: 'Order', entityId: id, details: { from: current.status, to: newStatus } });
   }
+
+  // Sync status change to Google Sheets
+  syncOrderToSheets(order, 'update').catch(() => {});
 
   // Trigger WhatsApp automation asynchronously
   import('../../jobs/automationJob.js').then(({ triggerAutomation }) => {

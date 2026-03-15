@@ -72,6 +72,30 @@ router.post('/test-email', requireRole('ADMIN'), async (req, res) => {
   }
 });
 
+router.post('/test-google-sheets', requireRole('ADMIN'), async (req, res) => {
+  const { url, sheetName } = req.body;
+  if (!url) return res.status(400).json({ error: 'url required' });
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'append',
+        orderNumber: 'TEST-001',
+        sheetName: sheetName || 'Orders',
+        row: ['TEST-001','Test Customer','08000000000','','Lagos','','Test Address',
+          'Test Product',5000,0,'PENDING','COD','UNPAID','','','manual','','',
+          new Date().toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })],
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    const text = await resp.text();
+    res.json({ ok: true, response: text });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 router.get('/audit-logs', requireRole('ADMIN'), async (req, res, next) => {
   try {
     const logs = await prisma.auditLog.findMany({
