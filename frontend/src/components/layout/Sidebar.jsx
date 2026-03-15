@@ -46,7 +46,7 @@ const NAV_SECTIONS = [
   {
     label: 'WhatsApp',
     items: [
-      { to: '/whatsapp/accounts', icon: Phone, label: 'Accounts', roles: ['ADMIN', 'SUPERVISOR'] },
+      { to: '/whatsapp/accounts', icon: Phone, label: 'Account Setup', roles: ['ADMIN', 'SUPERVISOR'] },
       { to: '/whatsapp/templates', icon: ScrollText, label: 'Templates', roles: ['ADMIN', 'SUPERVISOR', 'STAFF'] },
       { to: '/whatsapp/broadcast', icon: Radio, label: 'Broadcast', roles: ['ADMIN', 'SUPERVISOR', 'STAFF'] },
       { to: '/whatsapp/automation', icon: Zap, label: 'Automation', roles: ['ADMIN', 'SUPERVISOR'] },

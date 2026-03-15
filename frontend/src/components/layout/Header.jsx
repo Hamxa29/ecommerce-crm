@@ -12,7 +12,7 @@ const ROUTE_TITLES = {
   '/users': 'Users & Staff',
   '/agents': 'Agents',
   '/forms': 'Order Forms',
-  '/whatsapp/accounts': 'WhatsApp Accounts',
+  '/whatsapp/accounts': 'Account Setup',
   '/whatsapp/templates': 'WhatsApp Templates',
   '/whatsapp/broadcast': 'WhatsApp Broadcast',
   '/whatsapp/automation': 'WhatsApp Automation',
