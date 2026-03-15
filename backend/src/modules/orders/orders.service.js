@@ -315,6 +315,10 @@ export async function bulkAction(orderIds, action, payload, actorId) {
         case 'ban':
           await changeOrderStatus(id, 'BANNED', actorId);
           break;
+        case 'remit':
+          await prisma.order.update({ where: { id }, data: { paymentStatus: 'REMITTED' } });
+          if (actorId) await writeAuditLog({ userId: actorId, action: 'order.remitted', entityType: 'Order', entityId: id, details: {} });
+          break;
         default:
           throw new Error(`Unknown action: ${action}`);
       }
