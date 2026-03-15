@@ -9,6 +9,8 @@ import {
   ChevronLeft, ChevronRight, ClipboardList, Bot,
 } from 'lucide-react';
 
+// roles = always visible to these roles regardless of permissions
+// perms = also visible if user has any of these permission keys set to true
 const NAV_SECTIONS = [
   {
     label: 'Main',
@@ -19,38 +21,38 @@ const NAV_SECTIONS = [
   {
     label: 'Operations',
     items: [
-      { to: '/orders', icon: ClipboardList, label: 'Orders' },
-      { to: '/today', icon: CalendarCheck, label: "Today's Schedule" },
-      { to: '/abandoned-carts', icon: ShoppingCart, label: 'Abandoned Carts', roles: ['ADMIN', 'SUPERVISOR'] },
+      { to: '/orders',         icon: ClipboardList, label: 'Orders',           perms: ['orders'] },
+      { to: '/today',          icon: CalendarCheck, label: "Today's Schedule", perms: ['orders'] },
+      { to: '/abandoned-carts',icon: ShoppingCart,  label: 'Abandoned Carts',  roles: ['ADMIN', 'SUPERVISOR'] },
     ],
   },
   {
     label: 'Catalogue',
     items: [
-      { to: '/products', icon: Package, label: 'Catalogue' },
+      { to: '/products', icon: Package, label: 'Catalogue', perms: ['products'] },
     ],
   },
   {
     label: 'People',
     items: [
-      { to: '/users', icon: Users, label: 'Users & Staff', roles: ['ADMIN', 'SUPERVISOR'] },
-      { to: '/agents', icon: Truck, label: 'Delivery Agents', roles: ['ADMIN', 'SUPERVISOR', 'STAFF'] },
+      { to: '/users',  icon: Users, label: 'Users & Staff',    roles: ['ADMIN', 'SUPERVISOR'] },
+      { to: '/agents', icon: Truck, label: 'Delivery Agents',  roles: ['ADMIN', 'SUPERVISOR', 'STAFF'], perms: ['agents'] },
     ],
   },
   {
     label: 'Forms',
     items: [
-      { to: '/forms', icon: FileText, label: 'Order Forms', roles: ['ADMIN', 'SUPERVISOR', 'STAFF'] },
+      { to: '/forms', icon: FileText, label: 'Order Forms', roles: ['ADMIN', 'SUPERVISOR', 'STAFF'], perms: ['orders'] },
     ],
   },
   {
     label: 'WhatsApp',
     items: [
-      { to: '/whatsapp/accounts', icon: Phone, label: 'Account Setup', roles: ['ADMIN', 'SUPERVISOR'] },
-      { to: '/whatsapp/templates', icon: ScrollText, label: 'Templates', roles: ['ADMIN', 'SUPERVISOR', 'STAFF'] },
-      { to: '/whatsapp/broadcast', icon: Radio, label: 'Broadcast', roles: ['ADMIN', 'SUPERVISOR', 'STAFF'] },
-      { to: '/whatsapp/automation', icon: Zap, label: 'Automation', roles: ['ADMIN', 'SUPERVISOR'] },
-      { to: '/whatsapp/chatbot',    icon: Bot, label: 'AI Chatbot',  roles: ['ADMIN', 'SUPERVISOR'] },
+      { to: '/whatsapp/accounts',  icon: Phone,      label: 'Account Setup', roles: ['ADMIN', 'SUPERVISOR'],               perms: ['whatsapp'] },
+      { to: '/whatsapp/templates', icon: ScrollText, label: 'Templates',     roles: ['ADMIN', 'SUPERVISOR', 'STAFF'],      perms: ['whatsapp'] },
+      { to: '/whatsapp/broadcast', icon: Radio,      label: 'Broadcast',     roles: ['ADMIN', 'SUPERVISOR', 'STAFF'],      perms: ['whatsapp'] },
+      { to: '/whatsapp/automation',icon: Zap,        label: 'Automation',    roles: ['ADMIN', 'SUPERVISOR'],               perms: ['whatsapp'] },
+      { to: '/whatsapp/chatbot',   icon: Bot,        label: 'AI Chatbot',    roles: ['ADMIN', 'SUPERVISOR'],               perms: ['whatsapp'] },
     ],
   },
   {
@@ -93,9 +95,13 @@ export default function Sidebar() {
 
       <nav className="flex-1 overflow-y-auto py-2 scrollbar-thin">
         {NAV_SECTIONS.map((section) => {
-          const visibleItems = section.items.filter(item =>
-            !item.roles || item.roles.includes(user?.role)
-          );
+          const visibleItems = section.items.filter(item => {
+            if (!item.roles && !item.perms) return true;
+            if (user?.role === 'ADMIN') return true; // ADMIN always sees everything
+            const roleOk = item.roles?.includes(user?.role);
+            const permOk = item.perms?.some(p => user?.permissions?.[p]);
+            return roleOk || permOk;
+          });
           if (visibleItems.length === 0) return null;
           return (
             <div key={section.label} className="mb-1">
