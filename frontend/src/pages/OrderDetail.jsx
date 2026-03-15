@@ -53,6 +53,14 @@ export default function OrderDetail() {
     },
   });
 
+  const unremitMutation = useMutation({
+    mutationFn: () => ordersApi.update(id, { paymentStatus: 'UNPAID' }),
+    onSuccess: () => {
+      qc.invalidateQueries(['order', id]);
+      qc.invalidateQueries(['orders']);
+    },
+  });
+
   // Inject print-only styles
   const printStyleRef = useRef(null);
   useEffect(() => {
@@ -369,10 +377,19 @@ export default function OrderDetail() {
                 )}
               </div>
             )}
-            {/* Remitted badge */}
+            {/* Remitted badge with undo */}
             {order.paymentStatus === 'REMITTED' && (
-              <div className="flex items-center gap-1.5 text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-xs font-medium">
-                <CheckCircle2 size={13} /> Cash Remitted to Store
+              <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                <div className="flex items-center gap-1.5 text-green-700 text-xs font-medium">
+                  <CheckCircle2 size={13} /> Cash Remitted to Store
+                </div>
+                <button
+                  onClick={() => { if (window.confirm('Undo remittance? This will mark the order as Unremitted.')) unremitMutation.mutate(); }}
+                  disabled={unremitMutation.isPending}
+                  className="text-xs text-red-500 hover:text-red-700 hover:underline disabled:opacity-50 ml-3"
+                >
+                  {unremitMutation.isPending ? 'Undoing…' : 'Undo'}
+                </button>
               </div>
             )}
             <div className="flex justify-between"><span className="text-gray-500">Delivery Agent</span><span>{order.agent?.name ?? '—'}</span></div>

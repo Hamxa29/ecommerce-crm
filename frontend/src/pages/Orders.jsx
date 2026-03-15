@@ -91,6 +91,7 @@ const BULK_ACTIONS = [
   { value: 'status:FAILED', label: 'Mark Failed' },
   { value: 'status:CANCELLED', label: 'Cancel Orders' },
   { value: 'remit', label: 'Mark Cash Remitted' },
+  { value: 'unremit', label: 'Undo Cash Remittance' },
   { value: 'delete', label: 'Delete Orders (Permanent)' },
 ];
 
@@ -237,6 +238,11 @@ export default function Orders() {
     }
     if (bulkAction === 'remit') {
       setRemitModal(true);
+      return;
+    }
+    if (bulkAction === 'unremit') {
+      if (!window.confirm(`Undo remittance for ${selectedIds.length} order(s)? They will be marked as Unremitted.`)) return;
+      bulkMutation.mutate({ action: 'unremit', payload: {} });
       return;
     }
     if (bulkAction.startsWith('status:')) {
