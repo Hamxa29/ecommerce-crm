@@ -314,7 +314,7 @@ export default function Orders() {
         {STATUS_TABS.map(tab => (
           <button key={tab.value} onClick={() => { setActiveTab(tab.value); setPage(1); setSelectedIds([]); }}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-              activeTab === tab.value ? 'bg-primary text-white' : 'bg-white border text-gray-600 hover:bg-gray-50'
+              activeTab === tab.value ? 'bg-primary text-white' : 'bg-white dark:bg-gray-800 border dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}>
             {tab.label}
           </button>
@@ -337,8 +337,8 @@ export default function Orders() {
 
       {/* Bulk actions bar */}
       {selectedIds.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center gap-3">
-          <span className="text-sm text-blue-700 font-medium">{selectedIds.length} selected</span>
+        <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl p-3 flex items-center gap-3">
+          <span className="text-sm text-blue-700 dark:text-blue-300 font-medium">{selectedIds.length} selected</span>
           <select value={bulkAction} onChange={e => setBulkAction(e.target.value)}
             className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none flex-1 max-w-xs">
             <option value="">Choose action...</option>
@@ -382,7 +382,7 @@ export default function Orders() {
               )) : orders.length === 0 ? (
                 <tr><td colSpan={10}><EmptyState title="No orders found" description="Try adjusting your filters." /></td></tr>
               ) : orders.map(order => (
-                <tr key={order.id} className={`hover:bg-gray-50 ${selectedIds.includes(order.id) ? 'bg-blue-50/50' : ''}`}>
+                <tr key={order.id} className={`hover:bg-gray-50 dark:hover:bg-gray-800/40 ${selectedIds.includes(order.id) ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''}`}>
                   <td className="px-4 py-3">
                     <input type="checkbox" checked={selectedIds.includes(order.id)}
                       onChange={() => toggleSelect(order.id)} className="rounded" />

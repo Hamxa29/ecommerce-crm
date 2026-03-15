@@ -65,7 +65,7 @@ export default function OrderDetail() {
   const printStyleRef = useRef(null);
   useEffect(() => {
     const style = document.createElement('style');
-    style.textContent = `@media print { body * { visibility: hidden !important; } #receipt-print-area, #receipt-print-area * { visibility: visible !important; } #receipt-print-area { position: fixed; left: 0; top: 0; width: 100%; background: white !important; padding: 24px; font-family: monospace; font-size: 13px; color: #000 !important; z-index: 99999; } }`;
+    style.textContent = `@media print { body * { visibility: hidden !important; } #receipt-print-area { display: block !important; visibility: visible !important; position: fixed; left: 0; top: 0; width: 100%; background: white !important; padding: 24px; font-family: monospace; font-size: 13px; color: #000 !important; z-index: 99999; } #receipt-print-area * { visibility: visible !important; color: #000 !important; } }`;
     document.head.appendChild(style);
     printStyleRef.current = style;
     return () => { style.remove(); };
