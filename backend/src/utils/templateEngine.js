@@ -1,6 +1,6 @@
 /**
  * Replaces WhatsApp template variables with actual customer/order data.
- * Supports both {{var}} (new) and [var] (legacy) formats.
+ * Supports: [var], {{var}}, {var} — all case-insensitive.
  */
 export function applyTemplate(template, data = {}) {
   if (!template) return '';
@@ -24,9 +24,13 @@ export function applyTemplate(template, data = {}) {
     'formlink':           data.formlink ?? '',
   };
 
-  // Support both {{var}} (new) and [var] (legacy)
-  return Object.entries(varValues).reduce(
-    (msg, [key, val]) => msg.replaceAll(`{{${key}}}`, val).replaceAll(`[${key}]`, val),
-    template
-  );
+  // Replace all supported formats case-insensitively:
+  // [varname], {{varname}}, {varname}
+  return Object.entries(varValues).reduce((msg, [key, val]) => {
+    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return msg
+      .replace(new RegExp(`\\[${escaped}\\]`, 'gi'), val)
+      .replace(new RegExp(`\\{\\{${escaped}\\}\\}`, 'gi'), val)
+      .replace(new RegExp(`\\{${escaped}\\}`, 'gi'), val);
+  }, template);
 }
