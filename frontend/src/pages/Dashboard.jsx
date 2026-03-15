@@ -175,9 +175,57 @@ function OverviewTab({ stats, isLoading, selectedLabel }) {
 }
 
 // ── Exports tab ───────────────────────────────────────────────────────────────
-function ExportsTab({ period, selectedLabel }) {
+function ExportsTab({ period, selectedLabel, stats }) {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState(null);
+  const [exportingAnalytics, setExportingAnalytics] = useState(false);
+
+  const handleExportAnalytics = () => {
+    if (!stats) return;
+    setExportingAnalytics(true);
+    try {
+      const rows = [];
+      const fmt = (n) => Number(n ?? 0).toLocaleString('en-NG');
+      const w = stats.thisWeek;
+
+      rows.push(['ANALYTICS REPORT', selectedLabel]);
+      rows.push([]);
+      rows.push(['KEY METRICS']);
+      rows.push(['Metric', 'Value']);
+      rows.push(['Total Orders', w.count]);
+      rows.push(['Total Revenue (NGN)', fmt(w.totalAmount)]);
+      rows.push(['Delivered Orders', w.delivered]);
+      rows.push(['Delivered Revenue (NGN)', fmt(w.deliveredAmount)]);
+      rows.push(['Delivery Rate (%)', w.deliveryRate]);
+      rows.push(['Pending Orders', w.pending]);
+      rows.push(['Awaiting Orders', w.awaiting]);
+      rows.push(['Scheduled Orders', w.scheduled]);
+      rows.push(['Cancelled / Failed Revenue (NGN)', fmt(w.cancelledAmount)]);
+      rows.push([]);
+      rows.push(['TOP PRODUCTS']);
+      rows.push(['Product', 'Units Sold', 'Revenue (NGN)']);
+      (stats.topProducts ?? []).forEach(p => rows.push([p.name, p.count, fmt(p.revenue)]));
+      rows.push([]);
+      rows.push(['TOP STATES']);
+      rows.push(['State', 'Orders']);
+      (stats.topStates ?? []).forEach(s => rows.push([s.state, s.count]));
+      rows.push([]);
+      rows.push(['TOP CUSTOMERS']);
+      rows.push(['Customer', 'Phone', 'Orders', 'Total Spend (NGN)']);
+      (stats.topCustomers ?? []).forEach(c => rows.push([c.name, c.phone, c.count, fmt(c.total)]));
+
+      const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `analytics-report-${period}-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExportingAnalytics(false);
+    }
+  };
 
   const handleExport = async (statusFilter) => {
     setExporting(true);
@@ -230,6 +278,28 @@ function ExportsTab({ period, selectedLabel }) {
           </button>
         </Panel>
       ))}
+      {/* Analytics Report export */}
+      <Panel className="md:col-span-2">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h4 className="font-semibold text-gray-800 mb-1">Analytics Report</h4>
+            <p className="text-sm text-gray-500">Key metrics, top products, top states & top customers for the period</p>
+            <p className="text-xs text-gray-400 mt-1">Period: {selectedLabel} · Downloads as CSV</p>
+          </div>
+          <div className="w-10 h-10 bg-green-50 rounded-xl flex items-center justify-center flex-shrink-0">
+            <BarChart2 size={18} className="text-green-600" />
+          </div>
+        </div>
+        <button
+          onClick={handleExportAnalytics}
+          disabled={exportingAnalytics || !stats}
+          className="mt-4 w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-semibold py-2.5 rounded-xl transition"
+        >
+          {exportingAnalytics ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+          Export Analytics CSV
+        </button>
+      </Panel>
+
       {exportError && (
         <div className="md:col-span-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
           {exportError}
@@ -483,7 +553,7 @@ export default function Dashboard() {
 
       {/* Tab content */}
       {activeTab === 'overview'  && <OverviewTab  stats={stats} isLoading={isLoading} selectedLabel={selectedLabel} />}
-      {activeTab === 'exports'   && <ExportsTab   period={period} selectedLabel={selectedLabel} />}
+      {activeTab === 'exports'   && <ExportsTab   period={period} selectedLabel={selectedLabel} stats={stats} />}
       {activeTab === 'top-sales' && <TopSalesTab  stats={stats} isLoading={isLoading} selectedLabel={selectedLabel} />}
       {activeTab === 'customers' && <CustomersTab stats={stats} isLoading={isLoading} selectedLabel={selectedLabel} />}
     </div>

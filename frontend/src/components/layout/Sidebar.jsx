@@ -9,8 +9,9 @@ import {
   ChevronLeft, ChevronRight, ClipboardList, Bot,
 } from 'lucide-react';
 
-// roles = always visible to these roles regardless of permissions
-// perms = also visible if user has any of these permission keys set to true
+// ADMIN always sees everything.
+// Everyone else sees only items where they have a matching permission key.
+// roles: ['ADMIN'] means admin-only regardless of permissions.
 const NAV_SECTIONS = [
   {
     label: 'Main',
@@ -21,9 +22,9 @@ const NAV_SECTIONS = [
   {
     label: 'Operations',
     items: [
-      { to: '/orders',         icon: ClipboardList, label: 'Orders',           perms: ['orders'] },
-      { to: '/today',          icon: CalendarCheck, label: "Today's Schedule", perms: ['orders'] },
-      { to: '/abandoned-carts',icon: ShoppingCart,  label: 'Abandoned Carts',  roles: ['ADMIN', 'SUPERVISOR'] },
+      { to: '/orders',          icon: ClipboardList, label: 'Orders',            perms: ['orders'] },
+      { to: '/today',           icon: CalendarCheck, label: "Today's Schedule",  perms: ['orders'] },
+      { to: '/abandoned-carts', icon: ShoppingCart,  label: 'Abandoned Carts',   perms: ['abandonedCarts'] },
     ],
   },
   {
@@ -35,24 +36,24 @@ const NAV_SECTIONS = [
   {
     label: 'People',
     items: [
-      { to: '/users',  icon: Users, label: 'Users & Staff',    roles: ['ADMIN', 'SUPERVISOR'] },
-      { to: '/agents', icon: Truck, label: 'Delivery Agents',  roles: ['ADMIN', 'SUPERVISOR', 'STAFF'], perms: ['agents'] },
+      { to: '/users',  icon: Users, label: 'Users & Staff',   perms: ['userManagement'] },
+      { to: '/agents', icon: Truck, label: 'Delivery Agents', perms: ['agents'] },
     ],
   },
   {
     label: 'Forms',
     items: [
-      { to: '/forms', icon: FileText, label: 'Order Forms', roles: ['ADMIN', 'SUPERVISOR', 'STAFF'], perms: ['orders'] },
+      { to: '/forms', icon: FileText, label: 'Order Forms', perms: ['orderForms', 'orders'] },
     ],
   },
   {
     label: 'WhatsApp',
     items: [
-      { to: '/whatsapp/accounts',  icon: Phone,      label: 'Account Setup', roles: ['ADMIN', 'SUPERVISOR'],               perms: ['whatsapp'] },
-      { to: '/whatsapp/templates', icon: ScrollText, label: 'Templates',     roles: ['ADMIN', 'SUPERVISOR', 'STAFF'],      perms: ['whatsapp'] },
-      { to: '/whatsapp/broadcast', icon: Radio,      label: 'Broadcast',     roles: ['ADMIN', 'SUPERVISOR', 'STAFF'],      perms: ['whatsapp'] },
-      { to: '/whatsapp/automation',icon: Zap,        label: 'Automation',    roles: ['ADMIN', 'SUPERVISOR'],               perms: ['whatsapp'] },
-      { to: '/whatsapp/chatbot',   icon: Bot,        label: 'AI Chatbot',    roles: ['ADMIN', 'SUPERVISOR'],               perms: ['whatsapp'] },
+      { to: '/whatsapp/accounts',  icon: Phone,      label: 'Account Setup', perms: ['whatsappAdmin'] },
+      { to: '/whatsapp/templates', icon: ScrollText, label: 'Templates',     perms: ['whatsapp', 'whatsappAdmin'] },
+      { to: '/whatsapp/broadcast', icon: Radio,      label: 'Broadcast',     perms: ['whatsapp', 'whatsappAdmin'] },
+      { to: '/whatsapp/automation',icon: Zap,        label: 'Automation',    perms: ['whatsappAdmin'] },
+      { to: '/whatsapp/chatbot',   icon: Bot,        label: 'AI Chatbot',    perms: ['whatsappAdmin'] },
     ],
   },
   {
@@ -96,11 +97,10 @@ export default function Sidebar() {
       <nav className="flex-1 overflow-y-auto py-2 scrollbar-thin">
         {NAV_SECTIONS.map((section) => {
           const visibleItems = section.items.filter(item => {
-            if (!item.roles && !item.perms) return true;
-            if (user?.role === 'ADMIN') return true; // ADMIN always sees everything
-            const roleOk = item.roles?.includes(user?.role);
-            const permOk = item.perms?.some(p => user?.permissions?.[p]);
-            return roleOk || permOk;
+            if (!item.roles && !item.perms) return true; // unrestricted
+            if (user?.role === 'ADMIN') return true;     // ADMIN sees everything
+            if (item.roles?.includes('ADMIN') && !item.perms) return false; // admin-only
+            return item.perms?.some(p => user?.permissions?.[p]);           // permission check
           });
           if (visibleItems.length === 0) return null;
           return (

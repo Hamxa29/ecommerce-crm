@@ -7,15 +7,47 @@ import ConfirmDialog from '@/components/shared/ConfirmDialog';
 import EmptyState from '@/components/shared/EmptyState';
 import { Plus, Pencil, UserX, Search, Loader2, X, FileDown } from 'lucide-react';
 
-const PERMISSIONS = [
-  { key: 'orders', label: 'Orders' },
-  { key: 'financials', label: 'Financials' },
-  { key: 'customers', label: 'Customer Data' },
-  { key: 'products', label: 'Products' },
-  { key: 'agents', label: 'Delivery Agents' },
-  { key: 'whatsapp', label: 'WhatsApp' },
-  { key: 'reports', label: 'Reports' },
+const PERMISSION_GROUPS = [
+  {
+    label: 'Operations',
+    items: [
+      { key: 'orders',        label: 'Orders & Today\'s Schedule' },
+      { key: 'orderForms',    label: 'Order Forms' },
+      { key: 'abandonedCarts',label: 'Abandoned Carts' },
+    ],
+  },
+  {
+    label: 'Catalogue',
+    items: [
+      { key: 'products', label: 'Catalogue / Products' },
+    ],
+  },
+  {
+    label: 'People',
+    items: [
+      { key: 'agents',         label: 'Delivery Agents' },
+      { key: 'userManagement', label: 'Users & Staff Management' },
+    ],
+  },
+  {
+    label: 'WhatsApp',
+    items: [
+      { key: 'whatsapp',      label: 'Templates & Broadcast' },
+      { key: 'whatsappAdmin', label: 'Account Setup, Automation & AI Chatbot' },
+    ],
+  },
+  {
+    label: 'Analytics & Finance',
+    items: [
+      { key: 'reports',    label: 'Dashboard Analytics & Reports' },
+      { key: 'financials', label: 'Financial Data' },
+      { key: 'customers',  label: 'Customer Data' },
+    ],
+  },
 ];
+
+// Flat list for backwards-compat and legacy keys
+const ALL_PERMISSIONS = PERMISSION_GROUPS.flatMap(g => g.items);
 
 function UserModal({ user, onClose }) {
   const qc = useQueryClient();
@@ -75,15 +107,36 @@ function UserModal({ user, onClose }) {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-2">Permissions</label>
-            <div className="grid grid-cols-2 gap-2">
-              {PERMISSIONS.map(p => (
-                <label key={p.key} className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input type="checkbox" checked={!!permissions[p.key]}
-                    onChange={e => setPermissions(prev => ({ ...prev, [p.key]: e.target.checked }))}
-                    className="rounded border-gray-300" />
-                  {p.label}
-                </label>
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">Access Permissions</label>
+              <button type="button" onClick={() => {
+                const allKeys = ALL_PERMISSIONS.map(p => p.key);
+                const allOn = allKeys.every(k => permissions[k]);
+                const next = {};
+                allKeys.forEach(k => { next[k] = !allOn; });
+                setPermissions(next);
+              }} className="text-xs text-primary hover:underline">
+                {ALL_PERMISSIONS.every(p => permissions[p.key]) ? 'Deselect all' : 'Select all'}
+              </button>
+            </div>
+            <div className="space-y-3 border rounded-xl p-4 bg-gray-50/50">
+              {PERMISSION_GROUPS.map(group => (
+                <div key={group.label}>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{group.label}</p>
+                  <div className="space-y-2">
+                    {group.items.map(p => (
+                      <label key={p.key} className="flex items-center justify-between cursor-pointer group">
+                        <span className="text-sm text-gray-700 group-hover:text-gray-900">{p.label}</span>
+                        <div className="relative flex-shrink-0 ml-3">
+                          <input type="checkbox" className="sr-only peer" checked={!!permissions[p.key]}
+                            onChange={e => setPermissions(prev => ({ ...prev, [p.key]: e.target.checked }))} />
+                          <div className="w-9 h-5 bg-gray-200 peer-checked:bg-primary rounded-full transition-colors" />
+                          <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4" />
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
