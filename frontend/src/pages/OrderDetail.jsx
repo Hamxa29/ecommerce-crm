@@ -123,471 +123,473 @@ export default function OrderDetail() {
   const waLogs = order.whatsappLogs ?? [];
 
   return (
-    <div className="space-y-5 max-w-5xl">
-      <div className="flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="p-1.5 rounded hover:bg-gray-100 text-gray-500">
-          <ArrowLeft size={18} />
-        </button>
-        <div>
-          <h2 className="text-lg font-semibold text-gray-800">Order {order.orderNumber}</h2>
-          <p className="text-sm text-gray-500">{formatDate(order.createdAt)}</p>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <OrderStatusBadge status={order.status} size="md" />
-          <button
-            onClick={() => window.print()}
-            title="Print / Save Receipt"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-lg hover:bg-gray-50 text-gray-600"
-          >
-            <Printer size={13} /> Receipt
+    <>
+      <div className="space-y-5 max-w-5xl">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(-1)} className="p-1.5 rounded hover:bg-gray-100 text-gray-500">
+            <ArrowLeft size={18} />
           </button>
-          {user?.role === 'ADMIN' && (
+          <div>
+            <h2 className="text-lg font-semibold text-gray-800">Order {order.orderNumber}</h2>
+            <p className="text-sm text-gray-500">{formatDate(order.createdAt)}</p>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <OrderStatusBadge status={order.status} size="md" />
             <button
-              onClick={() => { if (window.confirm('Permanently delete this order? This cannot be undone.')) deleteMutation.mutate(); }}
-              disabled={deleteMutation.isPending}
-              className="p-1.5 rounded hover:bg-red-50 text-red-500 disabled:opacity-50"
+              onClick={() => window.print()}
+              title="Print / Save Receipt"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-lg hover:bg-gray-50 text-gray-600"
             >
-              {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+              <Printer size={13} /> Receipt
             </button>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 space-y-5">
-          <div className="bg-white rounded-xl border p-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4">Customer Information</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div><span className="text-gray-500">Name</span><p className="font-medium text-gray-900 mt-0.5">{order.customerName}</p></div>
-              <div><span className="text-gray-500">Phone</span><div className="mt-0.5"><PhoneLink phone={order.customerPhone} /></div></div>
-              {order.customerPhone2 && <div><span className="text-gray-500">Phone 2</span><div className="mt-0.5"><PhoneLink phone={order.customerPhone2} /></div></div>}
-              {order.customerEmail && <div><span className="text-gray-500">Email</span><p className="mt-0.5">{order.customerEmail}</p></div>}
-              <div className="col-span-2"><span className="text-gray-500">Address</span><p className="font-medium mt-0.5">{order.address}</p></div>
-              <div><span className="text-gray-500">State</span><p className="font-medium mt-0.5">{order.state}</p></div>
-              {order.city && <div><span className="text-gray-500">City</span><p className="font-medium mt-0.5">{order.city}</p></div>}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl border p-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4">Order Items</h3>
-            {items.length === 0 ? (
-              <p className="text-sm text-gray-400">No items recorded.</p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead><tr className="border-b text-xs text-gray-500 uppercase">
-                  <th className="text-left pb-2">Product</th>
-                  <th className="text-left pb-2">Tier</th>
-                  <th className="text-center pb-2">Qty</th>
-                  <th className="text-right pb-2">Unit Price</th>
-                  <th className="text-right pb-2">Subtotal</th>
-                </tr></thead>
-                <tbody className="divide-y">
-                  {items.map(item => (
-                    <tr key={item.id}>
-                      <td className="py-2 text-gray-900">{item.product?.name}</td>
-                      <td className="py-2 text-gray-500">{item.pricingTier ?? '—'}</td>
-                      <td className="py-2 text-center">{item.quantity}</td>
-                      <td className="py-2 text-right">{formatNGN(item.unitPrice)}</td>
-                      <td className="py-2 text-right font-medium">{formatNGN(item.subtotal)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {user?.role === 'ADMIN' && (
+              <button
+                onClick={() => { if (window.confirm('Permanently delete this order? This cannot be undone.')) deleteMutation.mutate(); }}
+                disabled={deleteMutation.isPending}
+                className="p-1.5 rounded hover:bg-red-50 text-red-500 disabled:opacity-50"
+              >
+                {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+              </button>
             )}
-            <div className="border-t mt-3 pt-3 space-y-1 text-sm text-right">
-              <div className="flex justify-between"><span className="text-gray-500">Total Amount</span><span className="font-semibold">{formatNGN(order.totalAmount)}</span></div>
-            </div>
           </div>
-
-          <div className="bg-white rounded-xl border p-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2"><Clock size={15} /> Status History</h3>
-            <div className="space-y-3">
-              {history.map((h) => (
-                <div key={h.id} className="flex items-start gap-3">
-                  <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {h.fromStatus && <><OrderStatusBadge status={h.fromStatus} /><span className="text-gray-400">→</span></>}
-                      <OrderStatusBadge status={h.toStatus} />
-                    </div>
-                    {h.note && <p className="text-xs text-gray-500 mt-0.5">{h.note}</p>}
-                    <p className="text-xs text-gray-400 mt-0.5">{formatDate(h.createdAt)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {waLogs.length > 0 && (
+        </div>
+  
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="lg:col-span-2 space-y-5">
             <div className="bg-white rounded-xl border p-5">
-              <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2"><MessageCircle size={15} className="text-green-600" /> WhatsApp Messages</h3>
+              <h3 className="text-sm font-semibold text-gray-700 mb-4">Customer Information</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><span className="text-gray-500">Name</span><p className="font-medium text-gray-900 mt-0.5">{order.customerName}</p></div>
+                <div><span className="text-gray-500">Phone</span><div className="mt-0.5"><PhoneLink phone={order.customerPhone} /></div></div>
+                {order.customerPhone2 && <div><span className="text-gray-500">Phone 2</span><div className="mt-0.5"><PhoneLink phone={order.customerPhone2} /></div></div>}
+                {order.customerEmail && <div><span className="text-gray-500">Email</span><p className="mt-0.5">{order.customerEmail}</p></div>}
+                <div className="col-span-2"><span className="text-gray-500">Address</span><p className="font-medium mt-0.5">{order.address}</p></div>
+                <div><span className="text-gray-500">State</span><p className="font-medium mt-0.5">{order.state}</p></div>
+                {order.city && <div><span className="text-gray-500">City</span><p className="font-medium mt-0.5">{order.city}</p></div>}
+              </div>
+            </div>
+  
+            <div className="bg-white rounded-xl border p-5">
+              <h3 className="text-sm font-semibold text-gray-700 mb-4">Order Items</h3>
+              {items.length === 0 ? (
+                <p className="text-sm text-gray-400">No items recorded.</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b text-xs text-gray-500 uppercase">
+                    <th className="text-left pb-2">Product</th>
+                    <th className="text-left pb-2">Tier</th>
+                    <th className="text-center pb-2">Qty</th>
+                    <th className="text-right pb-2">Unit Price</th>
+                    <th className="text-right pb-2">Subtotal</th>
+                  </tr></thead>
+                  <tbody className="divide-y">
+                    {items.map(item => (
+                      <tr key={item.id}>
+                        <td className="py-2 text-gray-900">{item.product?.name}</td>
+                        <td className="py-2 text-gray-500">{item.pricingTier ?? '—'}</td>
+                        <td className="py-2 text-center">{item.quantity}</td>
+                        <td className="py-2 text-right">{formatNGN(item.unitPrice)}</td>
+                        <td className="py-2 text-right font-medium">{formatNGN(item.subtotal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              <div className="border-t mt-3 pt-3 space-y-1 text-sm text-right">
+                <div className="flex justify-between"><span className="text-gray-500">Total Amount</span><span className="font-semibold">{formatNGN(order.totalAmount)}</span></div>
+              </div>
+            </div>
+  
+            <div className="bg-white rounded-xl border p-5">
+              <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2"><Clock size={15} /> Status History</h3>
               <div className="space-y-3">
-                {waLogs.map(log => (
-                  <div key={log.id} className="bg-gray-50 rounded-lg p-3 text-sm">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${log.status === 'sent' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>{log.status}</span>
-                      <span className="text-xs text-gray-400">{formatDate(log.sentAt)}</span>
+                {history.map((h) => (
+                  <div key={h.id} className="flex items-start gap-3">
+                    <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {h.fromStatus && <><OrderStatusBadge status={h.fromStatus} /><span className="text-gray-400">→</span></>}
+                        <OrderStatusBadge status={h.toStatus} />
+                      </div>
+                      {h.note && <p className="text-xs text-gray-500 mt-0.5">{h.note}</p>}
+                      <p className="text-xs text-gray-400 mt-0.5">{formatDate(h.createdAt)}</p>
                     </div>
-                    <p className="text-gray-700 whitespace-pre-wrap">{log.message}</p>
                   </div>
                 ))}
               </div>
             </div>
-          )}
-        </div>
-
-        <div className="space-y-5">
-          <div className="bg-white rounded-xl border p-5">
-            <h3 className="text-sm font-semibold text-gray-700 mb-4">Change Status</h3>
-            <select value={newStatus} onChange={e => { setNewStatus(e.target.value); setScheduledDate(''); setReminder({ enabled: false, offset: 1440 }); }}
-              className="w-full border rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary/30">
-              <option value="">Select new status...</option>
-              {ORDER_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
-
-            {newStatus === 'SCHEDULED' && (
-              <div className="mb-3 border rounded-xl p-3 bg-gray-50">
-                <CalendarPicker
-                  value={scheduledDate}
-                  onChange={setScheduledDate}
-                  reminderEnabled={reminder.enabled}
-                  reminderOffset={reminder.offset}
-                  onReminderChange={({ enabled, offset }) => setReminder({ enabled, offset })}
-                  showReminder={true}
-                />
+  
+            {waLogs.length > 0 && (
+              <div className="bg-white rounded-xl border p-5">
+                <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2"><MessageCircle size={15} className="text-green-600" /> WhatsApp Messages</h3>
+                <div className="space-y-3">
+                  {waLogs.map(log => (
+                    <div key={log.id} className="bg-gray-50 rounded-lg p-3 text-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${log.status === 'sent' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>{log.status}</span>
+                        <span className="text-xs text-gray-400">{formatDate(log.sentAt)}</span>
+                      </div>
+                      <p className="text-gray-700 whitespace-pre-wrap">{log.message}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
-
-            {(newStatus === 'DELIVERED' || newStatus === 'FAILED') && (() => {
-              const orderState = order?.state;
-              // Agents that cover this order's state, or agents with no states configured
-              const stateAgents = agents.filter(a =>
-                !a.states?.length || a.states.includes(orderState)
-              );
-              const hasAgents = agents.length > 0;
-              const noAgentsForState = hasAgents && stateAgents.length === 0;
-
-              return (
-                <div className="mb-3">
-                  <label className="block text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1.5">
-                    <Truck size={12} />
-                    {newStatus === 'DELIVERED' ? 'Who delivered this order?' : 'Which delivery agent attempted delivery?'}
-                    {orderState && <span className="text-primary font-semibold">· {orderState}</span>}
-                  </label>
-
-                  {/* No agents at all */}
-                  {!hasAgents && (
-                    <a href="/agents" className="flex items-center gap-2 text-xs text-primary hover:underline bg-primary/5 border border-primary/20 rounded-lg px-3 py-2.5">
-                      <UserPlus size={13} />
-                      No delivery agents added yet — click to add one
-                    </a>
-                  )}
-
-                  {/* Agents exist but none cover this state */}
-                  {noAgentsForState && (
-                    <div className="border border-amber-200 bg-amber-50 rounded-lg px-3 py-2.5 space-y-1.5">
-                      <p className="text-xs text-amber-700 font-medium">
-                        No delivery agents set up for {orderState}.
-                      </p>
-                      <a href="/agents" className="flex items-center gap-1.5 text-xs text-primary hover:underline font-medium">
-                        <UserPlus size={12} />
-                        Add an agent for {orderState}
+          </div>
+  
+          <div className="space-y-5">
+            <div className="bg-white rounded-xl border p-5">
+              <h3 className="text-sm font-semibold text-gray-700 mb-4">Change Status</h3>
+              <select value={newStatus} onChange={e => { setNewStatus(e.target.value); setScheduledDate(''); setReminder({ enabled: false, offset: 1440 }); }}
+                className="w-full border rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary/30">
+                <option value="">Select new status...</option>
+                {ORDER_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+  
+              {newStatus === 'SCHEDULED' && (
+                <div className="mb-3 border rounded-xl p-3 bg-gray-50">
+                  <CalendarPicker
+                    value={scheduledDate}
+                    onChange={setScheduledDate}
+                    reminderEnabled={reminder.enabled}
+                    reminderOffset={reminder.offset}
+                    onReminderChange={({ enabled, offset }) => setReminder({ enabled, offset })}
+                    showReminder={true}
+                  />
+                </div>
+              )}
+  
+              {(newStatus === 'DELIVERED' || newStatus === 'FAILED') && (() => {
+                const orderState = order?.state;
+                // Agents that cover this order's state, or agents with no states configured
+                const stateAgents = agents.filter(a =>
+                  !a.states?.length || a.states.includes(orderState)
+                );
+                const hasAgents = agents.length > 0;
+                const noAgentsForState = hasAgents && stateAgents.length === 0;
+  
+                return (
+                  <div className="mb-3">
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1.5">
+                      <Truck size={12} />
+                      {newStatus === 'DELIVERED' ? 'Who delivered this order?' : 'Which delivery agent attempted delivery?'}
+                      {orderState && <span className="text-primary font-semibold">· {orderState}</span>}
+                    </label>
+  
+                    {/* No agents at all */}
+                    {!hasAgents && (
+                      <a href="/agents" className="flex items-center gap-2 text-xs text-primary hover:underline bg-primary/5 border border-primary/20 rounded-lg px-3 py-2.5">
+                        <UserPlus size={13} />
+                        No delivery agents added yet — click to add one
                       </a>
-                    </div>
-                  )}
-
-                  {/* State-filtered agent list */}
-                  {stateAgents.length > 0 && (
-                    <div className="space-y-1.5 max-h-40 overflow-y-auto border rounded-xl p-2 bg-gray-50">
-                      <label className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition ${deliveryAgentId === '' ? 'bg-primary/10 border border-primary/30' : 'hover:bg-white border border-transparent'}`}>
-                        <input type="radio" name="deliveryAgent" value="" checked={deliveryAgentId === ''} onChange={() => setDeliveryAgentId('')} className="accent-primary shrink-0" />
-                        <span className="text-sm text-gray-500 italic">No agent</span>
-                      </label>
-                      {stateAgents.map(agent => (
-                        <label key={agent.id} className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition ${deliveryAgentId === agent.id ? 'bg-primary/10 border border-primary/30' : 'hover:bg-white border border-transparent'}`}>
-                          <input type="radio" name="deliveryAgent" value={agent.id} checked={deliveryAgentId === agent.id} onChange={() => setDeliveryAgentId(agent.id)} className="accent-primary shrink-0" />
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-gray-800">{agent.name}</p>
-                            {agent.states?.length > 0 && <p className="text-[10px] text-gray-400 truncate">{agent.states.join(', ')}</p>}
-                          </div>
+                    )}
+  
+                    {/* Agents exist but none cover this state */}
+                    {noAgentsForState && (
+                      <div className="border border-amber-200 bg-amber-50 rounded-lg px-3 py-2.5 space-y-1.5">
+                        <p className="text-xs text-amber-700 font-medium">
+                          No delivery agents set up for {orderState}.
+                        </p>
+                        <a href="/agents" className="flex items-center gap-1.5 text-xs text-primary hover:underline font-medium">
+                          <UserPlus size={12} />
+                          Add an agent for {orderState}
+                        </a>
+                      </div>
+                    )}
+  
+                    {/* State-filtered agent list */}
+                    {stateAgents.length > 0 && (
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto border rounded-xl p-2 bg-gray-50">
+                        <label className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition ${deliveryAgentId === '' ? 'bg-primary/10 border border-primary/30' : 'hover:bg-white border border-transparent'}`}>
+                          <input type="radio" name="deliveryAgent" value="" checked={deliveryAgentId === ''} onChange={() => setDeliveryAgentId('')} className="accent-primary shrink-0" />
+                          <span className="text-sm text-gray-500 italic">No agent</span>
                         </label>
-                      ))}
+                        {stateAgents.map(agent => (
+                          <label key={agent.id} className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition ${deliveryAgentId === agent.id ? 'bg-primary/10 border border-primary/30' : 'hover:bg-white border border-transparent'}`}>
+                            <input type="radio" name="deliveryAgent" value={agent.id} checked={deliveryAgentId === agent.id} onChange={() => setDeliveryAgentId(agent.id)} className="accent-primary shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-800">{agent.name}</p>
+                              {agent.states?.length > 0 && <p className="text-[10px] text-gray-400 truncate">{agent.states.join(', ')}</p>}
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+  
+              <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Note (optional)" rows={2}
+                className="w-full border rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              <button
+                onClick={() => statusMutation.mutate()}
+                disabled={!newStatus || statusMutation.isPending || (newStatus === 'SCHEDULED' && !scheduledDate)}
+                className="w-full bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
+                {statusMutation.isPending && <Loader2 size={14} className="animate-spin" />}
+                Update Status
+              </button>
+            </div>
+  
+            <div className="bg-white rounded-xl border p-5 text-sm space-y-3">
+              <h3 className="font-semibold text-gray-700">Order Details</h3>
+              <div className="flex justify-between"><span className="text-gray-500">Source</span><span className="capitalize">{order.source}</span></div>
+              {/* Payment method */}
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500">Payment Method</span>
+                {order.paymentMethod === 'PBD'
+                  ? <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">Pay Before Delivery</span>
+                  : <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">Cash on Delivery</span>
+                }
+              </div>
+              {/* Payment status */}
+              <div className="flex justify-between"><span className="text-gray-500">Payment Status</span><span className="capitalize">{order.paymentStatus?.toLowerCase() ?? '—'}</span></div>
+              {/* Reference */}
+              {order.paymentReference && (
+                <div className="flex justify-between items-center gap-4">
+                  <span className="text-gray-500 flex-shrink-0">Reference</span>
+                  <span className="font-mono text-xs text-gray-700 break-all text-right">{order.paymentReference}</span>
+                </div>
+              )}
+              {/* Confirmed at */}
+              {order.paymentConfirmedAt && (
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Paid At</span>
+                  <span className="text-green-600 font-medium flex items-center gap-1 text-xs">
+                    <CheckCircle2 className="w-3.5 h-3.5" />{formatDate(order.paymentConfirmedAt)}
+                  </span>
+                </div>
+              )}
+              {/* Send payment link (staff action) */}
+              {order.paymentMethod === 'PBD' && order.paymentStatus !== 'PAID' && (
+                <div className="pt-1">
+                  <button
+                    onClick={() => sendLinkMutation.mutate()}
+                    disabled={sendLinkMutation.isPending}
+                    className="flex items-center gap-2 text-xs font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                  >
+                    <CreditCard className="w-3.5 h-3.5" />
+                    {sendLinkMutation.isPending ? 'Sending…' : 'Send Payment Link'}
+                  </button>
+                  {sendLinkMutation.isSuccess && (
+                    <p className="text-xs text-green-600 mt-1">Payment link sent!</p>
+                  )}
+                  {sendLinkMutation.isError && (
+                    <p className="text-xs text-red-500 mt-1">Failed to send link.</p>
+                  )}
+                </div>
+              )}
+              {/* Remitted badge with undo */}
+              {order.paymentStatus === 'REMITTED' && (
+                <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-1.5 text-green-700 text-xs font-medium">
+                    <CheckCircle2 size={13} /> Cash Remitted to Store
+                  </div>
+                  <button
+                    onClick={() => { if (window.confirm('Undo remittance? This will mark the order as Unremitted.')) unremitMutation.mutate(); }}
+                    disabled={unremitMutation.isPending}
+                    className="text-xs text-red-500 hover:text-red-700 hover:underline disabled:opacity-50 ml-3"
+                  >
+                    {unremitMutation.isPending ? 'Undoing…' : 'Undo'}
+                  </button>
+                </div>
+              )}
+              <div className="flex justify-between"><span className="text-gray-500">Delivery Agent</span><span>{order.agent?.name ?? '—'}</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">Staff</span><span>{order.assignedStaff?.name ?? '—'}</span></div>
+              {order.scheduledDate && (
+                <div className="flex justify-between"><span className="text-gray-500">Scheduled For</span><span className="font-medium text-blue-700">{formatDate(order.scheduledDate)}</span></div>
+              )}
+              {order.reminderEnabled && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">WA Reminder</span>
+                  <span className={`font-medium text-xs ${order.reminderSentAt ? 'text-green-600' : 'text-orange-500'}`}>
+                    {order.reminderSentAt ? `Sent ${formatDate(order.reminderSentAt)}` : 'Pending'}
+                  </span>
+                </div>
+              )}
+              {order.notes && <div><span className="text-gray-500 block">Notes</span><p className="mt-0.5 text-gray-700">{order.notes}</p></div>}
+              {order.comment && <div><span className="text-gray-500 block">Comment</span><p className="mt-0.5 text-gray-700">{order.comment}</p></div>}
+            </div>
+  
+            {/* Cash Remittance Panel — COD + DELIVERED + not yet remitted */}
+            {order.status === 'DELIVERED' &&
+             order.paymentMethod === 'COD' &&
+             order.paymentStatus !== 'REMITTED' && (() => {
+              const total = Number(order.totalAmount ?? 0);
+              const fee   = Number(order.deliveryFee ?? 0);
+              const net   = total - fee;
+              return (
+                <div className="bg-white rounded-xl border border-amber-200 p-5 text-sm space-y-3">
+                  <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                    <Banknote size={15} className="text-amber-600" /> Cash Remittance
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    {order.agent
+                      ? <>Agent <span className="font-medium text-gray-700">{order.agent.name}</span> collected cash from customer.</>
+                      : 'Cash was collected from customer.'}{' '}
+                    Once the money is handed over, mark it as remitted.
+                  </p>
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Collected from customer</span>
+                      <span className="font-medium">{formatNGN(total)}</span>
                     </div>
+                    <div className="flex justify-between text-red-600">
+                      <span>Agent delivery fee (deducted)</span>
+                      <span>– {formatNGN(fee)}</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-2 font-bold text-gray-900">
+                      <span>Amount remitted to us</span>
+                      <span className="text-green-700">{formatNGN(net)}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setRemitFeeInput(String(order.deliveryFee ?? '')); setRemitModal(true); }}
+                    disabled={remitMutation.isPending}
+                    className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-medium py-2 rounded-lg transition"
+                  >
+                    {remitMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+                    Mark as Remitted
+                  </button>
+                  {remitMutation.isError && (
+                    <p className="text-xs text-red-500 text-center">Failed — please try again.</p>
                   )}
                 </div>
               );
             })()}
-
-            <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Note (optional)" rows={2}
-              className="w-full border rounded-lg px-3 py-2 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-primary/30" />
-            <button
-              onClick={() => statusMutation.mutate()}
-              disabled={!newStatus || statusMutation.isPending || (newStatus === 'SCHEDULED' && !scheduledDate)}
-              className="w-full bg-primary text-white rounded-lg py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-60 flex items-center justify-center gap-2">
-              {statusMutation.isPending && <Loader2 size={14} className="animate-spin" />}
-              Update Status
-            </button>
           </div>
-
-          <div className="bg-white rounded-xl border p-5 text-sm space-y-3">
-            <h3 className="font-semibold text-gray-700">Order Details</h3>
-            <div className="flex justify-between"><span className="text-gray-500">Source</span><span className="capitalize">{order.source}</span></div>
-            {/* Payment method */}
-            <div className="flex justify-between items-center">
-              <span className="text-gray-500">Payment Method</span>
-              {order.paymentMethod === 'PBD'
-                ? <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">Pay Before Delivery</span>
-                : <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">Cash on Delivery</span>
-              }
+        </div>
+  
+        {/* Hidden receipt — shown only when printing */}
+        <div id="receipt-print-area" style={{ display: 'none' }}>
+          <div style={{ maxWidth: 400, margin: '0 auto', fontFamily: 'monospace', fontSize: 13, lineHeight: 1.6 }}>
+            <div style={{ textAlign: 'center', marginBottom: 12 }}>
+              <p style={{ fontSize: 16, fontWeight: 'bold', margin: 0 }}>{settings?.storeName ?? 'Store'}</p>
+              {settings?.storeAddress && <p style={{ margin: '2px 0' }}>{settings.storeAddress}</p>}
+              {settings?.phoneNumber && <p style={{ margin: '2px 0' }}>Tel: {settings.phoneNumber}</p>}
+              {settings?.email && <p style={{ margin: '2px 0' }}>{settings.email}</p>}
             </div>
-            {/* Payment status */}
-            <div className="flex justify-between"><span className="text-gray-500">Payment Status</span><span className="capitalize">{order.paymentStatus?.toLowerCase() ?? '—'}</span></div>
-            {/* Reference */}
-            {order.paymentReference && (
-              <div className="flex justify-between items-center gap-4">
-                <span className="text-gray-500 flex-shrink-0">Reference</span>
-                <span className="font-mono text-xs text-gray-700 break-all text-right">{order.paymentReference}</span>
-              </div>
+  
+            <hr style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+            <p style={{ textAlign: 'center', fontWeight: 'bold', margin: '4px 0' }}>DELIVERY RECEIPT</p>
+            <hr style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+  
+            <table style={{ width: '100%', fontSize: 12 }}>
+              <tbody>
+                <tr><td>Order #</td><td style={{ textAlign: 'right' }}>{order.orderNumber}</td></tr>
+                <tr><td>Date</td><td style={{ textAlign: 'right' }}>{new Date(order.updatedAt ?? order.createdAt).toLocaleDateString('en-NG')}</td></tr>
+                <tr><td>Customer</td><td style={{ textAlign: 'right' }}>{order.customerName}</td></tr>
+                <tr><td>Phone</td><td style={{ textAlign: 'right' }}>{order.customerPhone}</td></tr>
+                <tr><td>Address</td><td style={{ textAlign: 'right', maxWidth: 180 }}>{order.address}, {order.state}</td></tr>
+                {order.agent && <tr><td>Agent</td><td style={{ textAlign: 'right' }}>{order.agent.name}</td></tr>}
+              </tbody>
+            </table>
+  
+            <hr style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+            <p style={{ fontWeight: 'bold', margin: '4px 0' }}>ITEMS</p>
+            <table style={{ width: '100%', fontSize: 12 }}>
+              <tbody>
+                {(order.items ?? []).map((item, i) => (
+                  <tr key={i}>
+                    <td style={{ paddingRight: 8 }}>{item.product?.name} x{item.quantity}</td>
+                    <td style={{ textAlign: 'right' }}>NGN {Number(item.subtotal).toLocaleString('en-NG')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+  
+            <hr style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+            <table style={{ width: '100%', fontSize: 12 }}>
+              <tbody>
+                <tr>
+                  <td>Subtotal</td>
+                  <td style={{ textAlign: 'right' }}>NGN {(Number(order.totalAmount) - Number(order.deliveryFee ?? 0)).toLocaleString('en-NG')}</td>
+                </tr>
+                <tr>
+                  <td>Delivery Fee</td>
+                  <td style={{ textAlign: 'right' }}>NGN {Number(order.deliveryFee ?? 0).toLocaleString('en-NG')}</td>
+                </tr>
+                <tr style={{ fontWeight: 'bold', fontSize: 14 }}>
+                  <td>TOTAL PAID</td>
+                  <td style={{ textAlign: 'right' }}>NGN {Number(order.totalAmount).toLocaleString('en-NG')}</td>
+                </tr>
+              </tbody>
+            </table>
+  
+            <hr style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+            <p style={{ margin: '2px 0' }}>Payment: {order.paymentMethod === 'COD' ? 'Cash on Delivery' : 'Pay Before Delivery'}</p>
+  
+            {settings?.invoiceFooterMessage && (
+              <>
+                <hr style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+                <p style={{ textAlign: 'center', fontSize: 11, margin: 0 }}>{settings.invoiceFooterMessage}</p>
+              </>
             )}
-            {/* Confirmed at */}
-            {order.paymentConfirmedAt && (
-              <div className="flex justify-between items-center">
-                <span className="text-gray-500">Paid At</span>
-                <span className="text-green-600 font-medium flex items-center gap-1 text-xs">
-                  <CheckCircle2 className="w-3.5 h-3.5" />{formatDate(order.paymentConfirmedAt)}
-                </span>
-              </div>
-            )}
-            {/* Send payment link (staff action) */}
-            {order.paymentMethod === 'PBD' && order.paymentStatus !== 'PAID' && (
-              <div className="pt-1">
-                <button
-                  onClick={() => sendLinkMutation.mutate()}
-                  disabled={sendLinkMutation.isPending}
-                  className="flex items-center gap-2 text-xs font-medium text-blue-600 hover:text-blue-800 disabled:opacity-50"
-                >
-                  <CreditCard className="w-3.5 h-3.5" />
-                  {sendLinkMutation.isPending ? 'Sending…' : 'Send Payment Link'}
-                </button>
-                {sendLinkMutation.isSuccess && (
-                  <p className="text-xs text-green-600 mt-1">Payment link sent!</p>
-                )}
-                {sendLinkMutation.isError && (
-                  <p className="text-xs text-red-500 mt-1">Failed to send link.</p>
-                )}
-              </div>
-            )}
-            {/* Remitted badge with undo */}
-            {order.paymentStatus === 'REMITTED' && (
-              <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-                <div className="flex items-center gap-1.5 text-green-700 text-xs font-medium">
-                  <CheckCircle2 size={13} /> Cash Remitted to Store
-                </div>
-                <button
-                  onClick={() => { if (window.confirm('Undo remittance? This will mark the order as Unremitted.')) unremitMutation.mutate(); }}
-                  disabled={unremitMutation.isPending}
-                  className="text-xs text-red-500 hover:text-red-700 hover:underline disabled:opacity-50 ml-3"
-                >
-                  {unremitMutation.isPending ? 'Undoing…' : 'Undo'}
-                </button>
-              </div>
-            )}
-            <div className="flex justify-between"><span className="text-gray-500">Delivery Agent</span><span>{order.agent?.name ?? '—'}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">Staff</span><span>{order.assignedStaff?.name ?? '—'}</span></div>
-            {order.scheduledDate && (
-              <div className="flex justify-between"><span className="text-gray-500">Scheduled For</span><span className="font-medium text-blue-700">{formatDate(order.scheduledDate)}</span></div>
-            )}
-            {order.reminderEnabled && (
-              <div className="flex justify-between">
-                <span className="text-gray-500">WA Reminder</span>
-                <span className={`font-medium text-xs ${order.reminderSentAt ? 'text-green-600' : 'text-orange-500'}`}>
-                  {order.reminderSentAt ? `Sent ${formatDate(order.reminderSentAt)}` : 'Pending'}
-                </span>
-              </div>
-            )}
-            {order.notes && <div><span className="text-gray-500 block">Notes</span><p className="mt-0.5 text-gray-700">{order.notes}</p></div>}
-            {order.comment && <div><span className="text-gray-500 block">Comment</span><p className="mt-0.5 text-gray-700">{order.comment}</p></div>}
           </div>
-
-          {/* Cash Remittance Panel — COD + DELIVERED + not yet remitted */}
-          {order.status === 'DELIVERED' &&
-           order.paymentMethod === 'COD' &&
-           order.paymentStatus !== 'REMITTED' && (() => {
-            const total = Number(order.totalAmount ?? 0);
-            const fee   = Number(order.deliveryFee ?? 0);
-            const net   = total - fee;
-            return (
-              <div className="bg-white rounded-xl border border-amber-200 p-5 text-sm space-y-3">
-                <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-                  <Banknote size={15} className="text-amber-600" /> Cash Remittance
-                </h3>
-                <p className="text-xs text-gray-500">
-                  {order.agent
-                    ? <>Agent <span className="font-medium text-gray-700">{order.agent.name}</span> collected cash from customer.</>
-                    : 'Cash was collected from customer.'}{' '}
-                  Once the money is handed over, mark it as remitted.
-                </p>
-                <div className="bg-gray-50 rounded-lg p-3 space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Collected from customer</span>
-                    <span className="font-medium">{formatNGN(total)}</span>
+        </div>
+      </div>
+  
+      {/* Cash Remittance Modal */}
+      {remitModal && (() => {
+        const total = Number(order?.totalAmount ?? 0);
+        const fee   = parseFloat(remitFeeInput) || 0;
+        const net   = total - fee;
+        return (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <Banknote size={16} className="text-amber-600" /> Confirm Cash Remittance
+              </h3>
+  
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs text-gray-500 font-medium mb-1">Total collected from customer</p>
+                  <p className="text-lg font-bold text-gray-900">{formatNGN(total)}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 font-medium block mb-1">
+                    Delivery agent charge (₦)
+                  </label>
+                  <input
+                    type="number"
+                    value={remitFeeInput}
+                    onChange={e => setRemitFeeInput(e.target.value)}
+                    placeholder="Enter amount agent charged"
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    autoFocus
+                  />
+                </div>
+                <div className="bg-gray-50 border rounded-lg p-3 space-y-2 text-sm">
+                  <div className="flex justify-between text-gray-600">
+                    <span>Collected from customer</span><span className="font-medium">{formatNGN(total)}</span>
                   </div>
                   <div className="flex justify-between text-red-600">
-                    <span>Agent delivery fee (deducted)</span>
-                    <span>– {formatNGN(fee)}</span>
+                    <span>Agent delivery charge</span><span>– {formatNGN(fee)}</span>
                   </div>
-                  <div className="flex justify-between border-t pt-2 font-bold text-gray-900">
-                    <span>Amount remitted to us</span>
-                    <span className="text-green-700">{formatNGN(net)}</span>
+                  <div className="flex justify-between font-bold text-green-700 border-t pt-2">
+                    <span>Net remitted to store</span><span>{formatNGN(net)}</span>
                   </div>
                 </div>
+              </div>
+  
+              <div className="flex gap-2 pt-1">
                 <button
-                  onClick={() => { setRemitFeeInput(String(order.deliveryFee ?? '')); setRemitModal(true); }}
-                  disabled={remitMutation.isPending}
-                  className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-medium py-2 rounded-lg transition"
+                  onClick={() => setRemitModal(false)}
+                  className="flex-1 border rounded-lg py-2 text-sm text-gray-600 hover:bg-gray-50"
                 >
-                  {remitMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
-                  Mark as Remitted
+                  Cancel
                 </button>
-                {remitMutation.isError && (
-                  <p className="text-xs text-red-500 text-center">Failed — please try again.</p>
-                )}
-              </div>
-            );
-          })()}
-        </div>
-      </div>
-
-      {/* Hidden receipt — shown only when printing */}
-      <div id="receipt-print-area" style={{ display: 'none' }}>
-        <div style={{ maxWidth: 400, margin: '0 auto', fontFamily: 'monospace', fontSize: 13, lineHeight: 1.6 }}>
-          <div style={{ textAlign: 'center', marginBottom: 12 }}>
-            <p style={{ fontSize: 16, fontWeight: 'bold', margin: 0 }}>{settings?.storeName ?? 'Store'}</p>
-            {settings?.storeAddress && <p style={{ margin: '2px 0' }}>{settings.storeAddress}</p>}
-            {settings?.phoneNumber && <p style={{ margin: '2px 0' }}>Tel: {settings.phoneNumber}</p>}
-            {settings?.email && <p style={{ margin: '2px 0' }}>{settings.email}</p>}
-          </div>
-
-          <hr style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
-          <p style={{ textAlign: 'center', fontWeight: 'bold', margin: '4px 0' }}>DELIVERY RECEIPT</p>
-          <hr style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
-
-          <table style={{ width: '100%', fontSize: 12 }}>
-            <tbody>
-              <tr><td>Order #</td><td style={{ textAlign: 'right' }}>{order.orderNumber}</td></tr>
-              <tr><td>Date</td><td style={{ textAlign: 'right' }}>{new Date(order.updatedAt ?? order.createdAt).toLocaleDateString('en-NG')}</td></tr>
-              <tr><td>Customer</td><td style={{ textAlign: 'right' }}>{order.customerName}</td></tr>
-              <tr><td>Phone</td><td style={{ textAlign: 'right' }}>{order.customerPhone}</td></tr>
-              <tr><td>Address</td><td style={{ textAlign: 'right', maxWidth: 180 }}>{order.address}, {order.state}</td></tr>
-              {order.agent && <tr><td>Agent</td><td style={{ textAlign: 'right' }}>{order.agent.name}</td></tr>}
-            </tbody>
-          </table>
-
-          <hr style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
-          <p style={{ fontWeight: 'bold', margin: '4px 0' }}>ITEMS</p>
-          <table style={{ width: '100%', fontSize: 12 }}>
-            <tbody>
-              {(order.items ?? []).map((item, i) => (
-                <tr key={i}>
-                  <td style={{ paddingRight: 8 }}>{item.product?.name} x{item.quantity}</td>
-                  <td style={{ textAlign: 'right' }}>NGN {Number(item.subtotal).toLocaleString('en-NG')}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <hr style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
-          <table style={{ width: '100%', fontSize: 12 }}>
-            <tbody>
-              <tr>
-                <td>Subtotal</td>
-                <td style={{ textAlign: 'right' }}>NGN {(Number(order.totalAmount) - Number(order.deliveryFee ?? 0)).toLocaleString('en-NG')}</td>
-              </tr>
-              <tr>
-                <td>Delivery Fee</td>
-                <td style={{ textAlign: 'right' }}>NGN {Number(order.deliveryFee ?? 0).toLocaleString('en-NG')}</td>
-              </tr>
-              <tr style={{ fontWeight: 'bold', fontSize: 14 }}>
-                <td>TOTAL PAID</td>
-                <td style={{ textAlign: 'right' }}>NGN {Number(order.totalAmount).toLocaleString('en-NG')}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <hr style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
-          <p style={{ margin: '2px 0' }}>Payment: {order.paymentMethod === 'COD' ? 'Cash on Delivery' : 'Pay Before Delivery'}</p>
-
-          {settings?.invoiceFooterMessage && (
-            <>
-              <hr style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
-              <p style={{ textAlign: 'center', fontSize: 11, margin: 0 }}>{settings.invoiceFooterMessage}</p>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-
-    {/* Cash Remittance Modal */}
-    {remitModal && (() => {
-      const total = Number(order?.totalAmount ?? 0);
-      const fee   = parseFloat(remitFeeInput) || 0;
-      const net   = total - fee;
-      return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
-            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-              <Banknote size={16} className="text-amber-600" /> Confirm Cash Remittance
-            </h3>
-
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs text-gray-500 font-medium mb-1">Total collected from customer</p>
-                <p className="text-lg font-bold text-gray-900">{formatNGN(total)}</p>
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 font-medium block mb-1">
-                  Delivery agent charge (₦)
-                </label>
-                <input
-                  type="number"
-                  value={remitFeeInput}
-                  onChange={e => setRemitFeeInput(e.target.value)}
-                  placeholder="Enter amount agent charged"
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  autoFocus
-                />
-              </div>
-              <div className="bg-gray-50 border rounded-lg p-3 space-y-2 text-sm">
-                <div className="flex justify-between text-gray-600">
-                  <span>Collected from customer</span><span className="font-medium">{formatNGN(total)}</span>
-                </div>
-                <div className="flex justify-between text-red-600">
-                  <span>Agent delivery charge</span><span>– {formatNGN(fee)}</span>
-                </div>
-                <div className="flex justify-between font-bold text-green-700 border-t pt-2">
-                  <span>Net remitted to store</span><span>{formatNGN(net)}</span>
-                </div>
+                <button
+                  onClick={() => { remitMutation.mutate(fee); setRemitModal(false); }}
+                  disabled={remitMutation.isPending}
+                  className="flex-1 bg-green-600 text-white rounded-lg py-2 text-sm font-semibold hover:bg-green-700 disabled:opacity-60"
+                >
+                  Confirm Remittance
+                </button>
               </div>
             </div>
-
-            <div className="flex gap-2 pt-1">
-              <button
-                onClick={() => setRemitModal(false)}
-                className="flex-1 border rounded-lg py-2 text-sm text-gray-600 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => { remitMutation.mutate(fee); setRemitModal(false); }}
-                disabled={remitMutation.isPending}
-                className="flex-1 bg-green-600 text-white rounded-lg py-2 text-sm font-semibold hover:bg-green-700 disabled:opacity-60"
-              >
-                Confirm Remittance
-              </button>
-            </div>
           </div>
-        </div>
-      );
-    })()}
+        );
+      })()}
+    </>
   );
 }
