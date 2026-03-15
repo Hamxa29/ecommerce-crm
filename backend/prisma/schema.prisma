@@ -417,6 +417,8 @@ model StoreSettings {
   chatbotAccountId     String?  // which WhatsappAccount handles incoming chats
   chatbotSystemPrompt  String?  // custom personality / rules appended to system prompt
   chatbotFallbackPhone String?  // staff phone to notify when bot can't answer
+  chatbotProvider      String  @default("anthropic")  // "anthropic" | "openai"
+  chatbotApiKey        String?  // encrypted at rest via DB; falls back to env var if blank
   chatbotModel         String  @default("claude-sonnet-4-6")
 
   updatedAt             DateTime @updatedAt

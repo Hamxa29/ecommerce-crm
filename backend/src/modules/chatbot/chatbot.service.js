@@ -1,10 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { prisma } from '../../config/database.js';
 import { sendText } from '../../config/evolution.js';
 import { getSettings } from '../settings/settings.service.js';
 import { createOrder } from '../orders/orders.service.js';
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // ── Deduplication (prevent double-processing duplicate webhooks) ──────────────
 const processedIds = new Map(); // messageId → timestamp
@@ -72,7 +71,7 @@ async function getConversation(phone, pushName) {
 
 // ── Save updated messages ─────────────────────────────────────────────────────
 async function saveMessages(phone, messages) {
-  // Trim to last 60 for storage, but only send last 40 to Claude
+  // Trim to last 60 for storage, but only send last 40 to AI
   const trimmed = messages.slice(-60);
   await prisma.chatbotConversation.update({
     where: { phone },
@@ -80,8 +79,9 @@ async function saveMessages(phone, messages) {
   });
 }
 
-// ── Tool definitions for Claude ───────────────────────────────────────────────
-const TOOLS = [
+// ── Tool definitions ──────────────────────────────────────────────────────────
+// Anthropic format
+const ANTHROPIC_TOOLS = [
   {
     name: 'create_order',
     description: 'Create an order in the CRM when you have collected all required customer details. Required: customerName, customerPhone, address, state, and at least one item.',
@@ -134,6 +134,72 @@ const TOOLS = [
         summary: { type: 'string', description: 'Brief summary of what the customer needs' },
       },
       required: ['reason', 'summary'],
+    },
+  },
+];
+
+// OpenAI format (function calling)
+const OPENAI_TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'create_order',
+      description: 'Create an order in the CRM when you have collected all required customer details.',
+      parameters: {
+        type: 'object',
+        properties: {
+          customerName:  { type: 'string' },
+          customerPhone: { type: 'string' },
+          address:       { type: 'string' },
+          state:         { type: 'string' },
+          city:          { type: 'string' },
+          notes:         { type: 'string' },
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                productId:   { type: 'string' },
+                pricingTier: { type: 'string' },
+                variation:   { type: 'string' },
+                quantity:    { type: 'integer' },
+                unitPrice:   { type: 'number' },
+              },
+              required: ['productId', 'unitPrice'],
+            },
+          },
+        },
+        required: ['customerName', 'customerPhone', 'address', 'state', 'items'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'lookup_order',
+      description: 'Look up the status of an existing order by order number or phone.',
+      parameters: {
+        type: 'object',
+        properties: {
+          orderNumber: { type: 'string' },
+          phone:       { type: 'string' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'notify_staff',
+      description: 'Notify staff when the bot cannot handle a query.',
+      parameters: {
+        type: 'object',
+        properties: {
+          reason:  { type: 'string' },
+          summary: { type: 'string' },
+        },
+        required: ['reason', 'summary'],
+      },
     },
   },
 ];
@@ -215,6 +281,104 @@ async function executeTool(toolName, toolInput, phone, settings, instanceName) {
   return { error: `Unknown tool: ${toolName}` };
 }
 
+// ── Anthropic agentic loop ────────────────────────────────────────────────────
+async function runAnthropicLoop(systemPrompt, messages, model, phone, settings, instanceName) {
+  const apiKey = (settings.chatbotProvider === 'anthropic' && settings.chatbotApiKey)
+    ? settings.chatbotApiKey
+    : process.env.ANTHROPIC_API_KEY;
+  const anthropic = new Anthropic({ apiKey });
+  let loopMessages = [...messages];
+  let finalResponse = '';
+  const MAX_ITERATIONS = 5;
+
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    const resolvedModel = (model && model !== 'claude-sonnet-4-6') ? model : 'claude-sonnet-4-6';
+    const response = await anthropic.messages.create({
+      model:      resolvedModel,
+      max_tokens: 1024,
+      system:     systemPrompt,
+      tools:      ANTHROPIC_TOOLS,
+      messages:   loopMessages,
+    });
+
+    const textBlock = response.content.find(b => b.type === 'text');
+    if (textBlock) finalResponse = textBlock.text;
+
+    if (response.stop_reason !== 'tool_use') break;
+
+    const toolUseBlocks = response.content.filter(b => b.type === 'tool_use');
+    const toolResults = [];
+    for (const toolUse of toolUseBlocks) {
+      const result = await executeTool(toolUse.name, toolUse.input, phone, settings, instanceName);
+      toolResults.push({
+        type:        'tool_result',
+        tool_use_id: toolUse.id,
+        content:     JSON.stringify(result),
+      });
+    }
+
+    loopMessages = [
+      ...loopMessages,
+      { role: 'assistant', content: response.content },
+      { role: 'user',      content: toolResults },
+    ];
+  }
+
+  return finalResponse || "I'm here to help! How can I assist you today?";
+}
+
+// ── OpenAI agentic loop ───────────────────────────────────────────────────────
+async function runOpenAILoop(systemPrompt, messages, model, phone, settings, instanceName) {
+  const apiKey = (settings.chatbotProvider === 'openai' && settings.chatbotApiKey)
+    ? settings.chatbotApiKey
+    : process.env.OPENAI_API_KEY;
+  const openai = new OpenAI({ apiKey });
+  // Convert Anthropic-style messages to OpenAI format (they're compatible for simple text messages)
+  let loopMessages = [
+    { role: 'system', content: systemPrompt },
+    ...messages.map(m => ({
+      role:    m.role,
+      content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+    })),
+  ];
+  let finalResponse = '';
+  const MAX_ITERATIONS = 5;
+
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    const resolvedModel = (model && model !== 'claude-sonnet-4-6') ? model : 'gpt-4o-mini';
+    const response = await openai.chat.completions.create({
+      model:      resolvedModel,
+      max_tokens: 1024,
+      tools:      OPENAI_TOOLS,
+      messages:   loopMessages,
+    });
+
+    const choice = response.choices[0];
+    const assistantMsg = choice.message;
+
+    if (assistantMsg.content) finalResponse = assistantMsg.content;
+
+    if (choice.finish_reason !== 'tool_calls' || !assistantMsg.tool_calls?.length) break;
+
+    // Append assistant message with tool calls
+    loopMessages.push(assistantMsg);
+
+    // Execute each tool call and append results
+    for (const tc of assistantMsg.tool_calls) {
+      let toolInput;
+      try { toolInput = JSON.parse(tc.function.arguments); } catch { toolInput = {}; }
+      const result = await executeTool(tc.function.name, toolInput, phone, settings, instanceName);
+      loopMessages.push({
+        role:         'tool',
+        tool_call_id: tc.id,
+        content:      JSON.stringify(result),
+      });
+    }
+  }
+
+  return finalResponse || "I'm here to help! How can I assist you today?";
+}
+
 // ── Main entry point ──────────────────────────────────────────────────────────
 export async function processMessage(phone, pushName, text, instanceName, messageId) {
   // Deduplication
@@ -230,8 +394,10 @@ export async function processMessage(phone, pushName, text, instanceName, messag
       getConversation(phone, pushName),
     ]);
 
+    const provider = settings.chatbotProvider ?? 'anthropic';
+
     // Build system prompt
-    const basePrompt = `You are a helpful WhatsApp sales assistant for ${settings.storeName ?? 'this business'}.
+    const systemPrompt = `You are a helpful WhatsApp sales assistant for ${settings.storeName ?? 'this business'}.
 You help customers learn about products, place orders, and check order status.
 Always be friendly, professional, and concise — this is a WhatsApp chat, keep replies short and readable.
 Use line breaks and simple formatting — no markdown headers or bullet lists with special characters.
@@ -261,55 +427,14 @@ ${settings.chatbotSystemPrompt ? `\nADDITIONAL INSTRUCTIONS:\n${settings.chatbot
       { role: 'user', content: text },
     ];
 
-    // Agentic loop — keep going until Claude stops calling tools
-    let loopMessages = [...updatedMessages];
-    let finalResponse = '';
-    let iterations = 0;
-    const MAX_ITERATIONS = 5;
-
-    while (iterations < MAX_ITERATIONS) {
-      iterations++;
-      const response = await client.messages.create({
-        model:      settings.chatbotModel ?? 'claude-sonnet-4-6',
-        max_tokens: 1024,
-        system:     basePrompt,
-        tools:      TOOLS,
-        messages:   loopMessages,
-      });
-
-      // Collect any text from this response
-      const textBlock = response.content.find(b => b.type === 'text');
-      if (textBlock) finalResponse = textBlock.text;
-
-      // If no tool calls, we're done
-      if (response.stop_reason !== 'tool_use') break;
-
-      // Execute all tool calls and build the tool_result messages
-      const toolUseBlocks = response.content.filter(b => b.type === 'tool_use');
-      const toolResults = [];
-
-      for (const toolUse of toolUseBlocks) {
-        const result = await executeTool(toolUse.name, toolUse.input, phone, settings, instanceName);
-        toolResults.push({
-          type:        'tool_result',
-          tool_use_id: toolUse.id,
-          content:     JSON.stringify(result),
-        });
-      }
-
-      // Append assistant message + tool results to loop
-      loopMessages = [
-        ...loopMessages,
-        { role: 'assistant', content: response.content },
-        { role: 'user',      content: toolResults },
-      ];
+    let finalResponse;
+    if (provider === 'openai') {
+      finalResponse = await runOpenAILoop(systemPrompt, updatedMessages, settings.chatbotModel, phone, settings, instanceName);
+    } else {
+      finalResponse = await runAnthropicLoop(systemPrompt, updatedMessages, settings.chatbotModel, phone, settings, instanceName);
     }
 
-    if (!finalResponse) {
-      finalResponse = "I'm here to help! How can I assist you today?";
-    }
-
-    // Save the full turn (user message + assistant response) to DB
+    // Save the full turn to DB
     const savedMessages = [
       ...updatedMessages,
       { role: 'assistant', content: finalResponse },
@@ -324,7 +449,6 @@ ${settings.chatbotSystemPrompt ? `\nADDITIONAL INSTRUCTIONS:\n${settings.chatbot
     return finalResponse;
   } catch (e) {
     console.error('[Chatbot] processMessage error:', e.message);
-    // Send a graceful fallback so customer isn't left hanging
     if (instanceName) {
       sendText(instanceName, phone, "Sorry, I'm having a moment! Our team will be in touch shortly.").catch(() => {});
     }

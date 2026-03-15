@@ -48,12 +48,21 @@ function ChatbotSettings() {
       chatbotAccountId:     settings.chatbotAccountId ?? '',
       chatbotFallbackPhone: settings.chatbotFallbackPhone ?? '',
       chatbotSystemPrompt:  settings.chatbotSystemPrompt ?? '',
+      chatbotProvider:      settings.chatbotProvider ?? 'anthropic',
+      chatbotApiKey:        '',  // never pre-filled for security
     });
   }
 
   const saveMutation = useMutation({
-    mutationFn: (data) => api.saveSettings(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['store-settings'] }),
+    mutationFn: (data) => {
+      const payload = { ...data };
+      if (!payload.chatbotApiKey) delete payload.chatbotApiKey; // don't overwrite with blank
+      return api.saveSettings(payload);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['store-settings'] });
+      setForm(f => ({ ...f, chatbotApiKey: '' })); // clear key field after save
+    },
   });
 
   if (sLoading || !form) return <div className="h-40 flex items-center justify-center"><Loader2 size={20} className="animate-spin text-gray-400" /></div>;
@@ -89,6 +98,55 @@ function ChatbotSettings() {
       {/* Config fields */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-5">
         <h3 className="font-semibold text-gray-900">Configuration</h3>
+
+        {/* AI Provider */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            AI Provider
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { value: 'anthropic', label: 'Anthropic (Claude)', hint: 'claude-sonnet-4-6' },
+              { value: 'openai',    label: 'OpenAI (ChatGPT)',   hint: 'gpt-4o-mini' },
+            ].map(p => (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => set('chatbotProvider', p.value)}
+                className={`border rounded-xl px-4 py-3 text-left transition ${
+                  form.chatbotProvider === p.value
+                    ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <p className="text-sm font-medium text-gray-900">{p.label}</p>
+                <p className="text-xs text-gray-400 mt-0.5">Default: {p.hint}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* API Key */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            {form.chatbotProvider === 'openai' ? 'OpenAI' : 'Anthropic'} API Key
+          </label>
+          <input
+            type="password"
+            value={form.chatbotApiKey}
+            onChange={e => set('chatbotApiKey', e.target.value)}
+            placeholder={form.chatbotProvider === 'openai' ? 'sk-...' : 'sk-ant-...'}
+            autoComplete="off"
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-primary font-mono"
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            {settings?.chatbotApiKeySet
+              ? <span className="text-green-600 font-medium">Key saved.</span>
+              : <span className="text-amber-600 font-medium">No key saved yet.</span>
+            }
+            {' '}Leave blank to keep the existing key. The key is stored securely and never returned to the browser.
+          </p>
+        </div>
 
         {/* Account selector */}
         <div>
