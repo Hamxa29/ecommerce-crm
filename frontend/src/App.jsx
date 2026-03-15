@@ -1,7 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import AppLayout from './components/layout/AppLayout';
 import { useAuthStore } from './stores/authStore';
+import client from './api/client';
 
 function RoleRoute({ roles, children }) {
   const user = useAuthStore((s) => s.user);
@@ -37,10 +39,24 @@ const queryClient = new QueryClient({
   },
 });
 
+function PermissionSync() {
+  const { token, setUser } = useAuthStore();
+  useEffect(() => {
+    if (!token) return;
+    const sync = () => {
+      client.get('/auth/me').then(res => setUser(res.data)).catch(() => {});
+    };
+    window.addEventListener('focus', sync);
+    return () => window.removeEventListener('focus', sync);
+  }, [token, setUser]);
+  return null;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <PermissionSync />
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/form/:slug" element={<PublicOrderForm />} />

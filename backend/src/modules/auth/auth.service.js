@@ -38,6 +38,7 @@ export async function refresh(refreshToken) {
   return {
     token: signAccessToken(tokenPayload),
     refreshToken: signRefreshToken({ id: user.id }),
+    user: sanitizeUser(user),
   };
 }
 

@@ -24,7 +24,8 @@ client.interceptors.response.use(
         const { refreshToken } = useAuthStore.getState();
         if (!refreshToken) throw new Error('No refresh token');
         const { data } = await axios.post('/api/auth/refresh', { refreshToken });
-        useAuthStore.getState().setToken(data.token);
+        const store = useAuthStore.getState();
+        store.setAuth(data.token, data.refreshToken, data.user ?? store.user);
         original.headers.Authorization = `Bearer ${data.token}`;
         return client(original);
       } catch {
