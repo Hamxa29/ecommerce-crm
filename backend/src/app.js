@@ -15,7 +15,8 @@ import whatsappRoutes   from './modules/whatsapp/whatsapp.routes.js';
 import formsRoutes      from './modules/forms/forms.routes.js';
 import settingsRoutes   from './modules/settings/settings.routes.js';
 import paymentsRoutes   from './modules/payments/payments.routes.js';
-import chatbotRoutes    from './modules/chatbot/chatbot.routes.js';
+import chatbotRoutes          from './modules/chatbot/chatbot.routes.js';
+import deliveryMonitorRoutes  from './modules/delivery-monitor/deliveryMonitor.routes.js';
 
 const app = express();
 
@@ -47,6 +48,7 @@ app.use('/api/forms',              formsRoutes);
 app.use('/api/settings',           settingsRoutes);
 app.use('/api/payments',           paymentsRoutes);
 app.use('/api/chatbot',            chatbotRoutes);
+app.use('/api/delivery-monitor',   deliveryMonitorRoutes);
 
 // Health check — update BUILD to verify deploys are live
 const BUILD = '2026-03-09-v3';

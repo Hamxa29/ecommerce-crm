@@ -1,6 +1,8 @@
 import * as svc from './chatbot.service.js';
 import { getSettings } from '../settings/settings.service.js';
 import { prisma } from '../../config/database.js';
+import { processGroupMessage as deliveryMonitorGroup } from '../delivery-monitor/deliveryMonitor.service.js';
+import { processGroupMessage as followUpGroup } from '../follow-up/followUp.service.js';
 
 // ── Check if a human/staff replied in Chatwoot since a given timestamp ────────
 async function hasStaffRepliedInChatwoot(phone, sinceMs) {
@@ -64,9 +66,22 @@ export async function receiveChatbotWebhook(req, res) {
     // Skip messages sent by the bot itself
     if (key.fromMe === true) return;
 
-    // Skip group messages
     const remoteJid = key.remoteJid ?? '';
-    if (remoteJid.includes('@g.us') || remoteJid.includes('@broadcast')) return;
+
+    // Skip broadcast
+    if (remoteJid.includes('@broadcast')) return;
+
+    // Route group messages to the appropriate handler
+    if (remoteJid.includes('@g.us')) {
+      const instance = body.instance ?? body.instanceName ?? null;
+      const deliveryInstance = process.env.DELIVERY_MONITOR_INSTANCE;
+      if (deliveryInstance && instance === deliveryInstance) {
+        deliveryMonitorGroup(body).catch(e => console.error('[Webhook] deliveryMonitorGroup error:', e.message));
+      } else {
+        followUpGroup(body).catch(e => console.error('[Webhook] followUpGroup error:', e.message));
+      }
+      return;
+    }
 
     // Extract phone — strip @s.whatsapp.net or @c.us suffix
     const phone = remoteJid.replace(/@.*$/, '').replace(/\D/g, '');
