@@ -59,7 +59,11 @@ function SettingsStateDropdown({ value, onChange, placeholder = 'Select state' }
 
 const settingsApi = {
   get:    ()     => client.get('/settings').then(r => r.data),
-  update: (data) => client.put('/settings', data).then(r => r.data),
+  update: (data) => {
+    // Strip virtual/read-only fields — never written to DB
+    const { chatbotAnthropicKeySet, chatbotOpenaiKeySet, ...clean } = data;
+    return client.put('/settings', clean).then(r => r.data);
+  },
 };
 
 // ── Store Settings Section ────────────────────────────────────────────────────
