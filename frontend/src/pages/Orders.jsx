@@ -371,7 +371,6 @@ export default function Orders() {
                   <input type="checkbox" checked={selectedIds.length === orders.length && orders.length > 0}
                     onChange={toggleAll} className="rounded" />
                 </th>
-                <th className="text-left px-4 py-3">Order #</th>
                 <th className="text-left px-4 py-3">Customer</th>
                 <th className="text-left px-4 py-3">Phone</th>
                 <th className="text-left px-4 py-3">State</th>
@@ -384,23 +383,26 @@ export default function Orders() {
             </thead>
             <tbody className="divide-y">
               {isLoading ? Array(8).fill(0).map((_, i) => (
-                <tr key={i}>{Array(10).fill(0).map((_, j) => (
+                <tr key={i}>{Array(9).fill(0).map((_, j) => (
                   <td key={j} className="px-4 py-3"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td>
                 ))}</tr>
               )) : orders.length === 0 ? (
-                <tr><td colSpan={10}><EmptyState title="No orders found" description="Try adjusting your filters." /></td></tr>
-              ) : orders.map(order => (
+                <tr><td colSpan={9}><EmptyState title="No orders found" description="Try adjusting your filters." /></td></tr>
+              ) : orders.map(order => {
+                const productNames = (order.items ?? []).map(i => i.product?.name).filter(Boolean);
+                const productLabel = productNames.length > 0 ? productNames.join(', ') : null;
+                return (
                 <tr key={order.id} className={`hover:bg-gray-50 dark:hover:bg-gray-800/40 ${selectedIds.includes(order.id) ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''}`}>
                   <td className="px-4 py-3">
                     <input type="checkbox" checked={selectedIds.includes(order.id)}
                       onChange={() => toggleSelect(order.id)} className="rounded" />
                   </td>
                   <td className="px-4 py-3">
-                    <Link to={`/orders/${order.id}`} className="text-primary hover:underline font-medium">
-                      {order.orderNumber}
+                    <Link to={`/orders/${order.id}`} className="block group">
+                      <span className="text-gray-900 font-medium group-hover:text-primary">{order.customerName}</span>
+                      {productLabel && <span className="block text-xs text-gray-400 mt-0.5 truncate max-w-[180px]">{productLabel}</span>}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-gray-900 font-medium">{order.customerName}</td>
                   <td className="px-4 py-3"><PhoneLink phone={order.customerPhone} /></td>
                   <td className="px-4 py-3 text-gray-600">{order.state}</td>
                   <td className="px-4 py-3 text-gray-900">{formatNGN(order.totalAmount)}</td>
@@ -419,7 +421,8 @@ export default function Orders() {
                   <td className="px-4 py-3 text-gray-600">{order.agent?.name ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{formatDate(order.createdAt)}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

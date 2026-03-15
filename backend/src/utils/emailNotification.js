@@ -103,6 +103,17 @@ export async function sendOrderStatusEmail(order, newStatus) {
     const storeName = settings?.storeName ?? 'E-Commerce CRM';
     const fromEmail = settings?.email || FROM_ADDRESS;
     const isDelivered = newStatus === 'DELIVERED';
+    const items = order.items ?? [];
+    const productNames = items.map(i => i.product?.name).filter(Boolean);
+    const productLabel = productNames.length > 0 ? productNames.join(', ') : null;
+
+    const itemsHtml = items.map(i =>
+      `<tr>
+        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${i.product?.name ?? 'Product'}${i.pricingTier ? ` — ${i.pricingTier}` : ''}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;text-align:center">${i.quantity}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;text-align:right">₦${Number(i.unitPrice).toLocaleString()}</td>
+      </tr>`
+    ).join('');
 
     const html = `
       <!DOCTYPE html>
@@ -112,7 +123,7 @@ export async function sendOrderStatusEmail(order, newStatus) {
           <div style="background:${isDelivered ? '#16a34a' : '#1d4ed8'};padding:28px 24px;text-align:center">
             <h1 style="color:#fff;margin:0;font-size:22px">${isDelivered ? '🎉 Order Delivered!' : '✅ Order Confirmed!'}</h1>
             <p style="color:${isDelivered ? '#bbf7d0' : '#bfdbfe'};margin:6px 0 8px;font-size:13px">${storeName}</p>
-            <p style="color:#fff;margin:0;font-size:20px;font-weight:bold;letter-spacing:1px">${order.orderNumber}</p>
+            ${productLabel ? `<p style="color:#fff;margin:0;font-size:16px;font-weight:600">${productLabel}</p>` : ''}
           </div>
           <div style="padding:24px">
             <p style="font-size:15px;color:#374151;margin:0 0 20px">
@@ -122,10 +133,22 @@ export async function sendOrderStatusEmail(order, newStatus) {
                 : ' your order has been confirmed and our team will contact you to arrange delivery.'}
             </p>
             <div style="background:#f8fafc;border-radius:8px;padding:16px;font-size:14px;line-height:1.9">
-              <div><span style="color:#6b7280">Order Number:</span> <strong style="color:#1d4ed8">${order.orderNumber}</strong></div>
               <div><span style="color:#6b7280">Status:</span> <strong>${isDelivered ? 'Delivered' : 'Confirmed'}</strong></div>
               ${order.address ? `<div><span style="color:#6b7280">Address:</span> ${order.address}, ${order.state}</div>` : ''}
             </div>
+            ${items.length > 0 ? `
+            <h3 style="font-size:14px;color:#374151;margin:20px 0 8px">What you ordered</h3>
+            <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">
+              <thead>
+                <tr style="background:#f3f4f6">
+                  <th style="padding:8px 12px;text-align:left;color:#6b7280">Product</th>
+                  <th style="padding:8px 12px;text-align:center;color:#6b7280">Qty</th>
+                  <th style="padding:8px 12px;text-align:right;color:#6b7280">Price</th>
+                </tr>
+              </thead>
+              <tbody>${itemsHtml}</tbody>
+            </table>
+            ` : ''}
             <div style="margin-top:20px;background:${isDelivered ? '#f0fdf4' : '#eff6ff'};border:2px solid ${isDelivered ? '#bbf7d0' : '#bfdbfe'};border-radius:8px;padding:16px;text-align:center">
               <p style="margin:0;color:${isDelivered ? '#166534' : '#1e40af'};font-size:13px">Total Amount</p>
               <p style="margin:4px 0 0;font-size:24px;font-weight:bold;color:${isDelivered ? '#166534' : '#1e40af'}">₦${Number(order.totalAmount).toLocaleString()}</p>
@@ -143,7 +166,9 @@ export async function sendOrderStatusEmail(order, newStatus) {
     await transporter.sendMail({
       from: `"${storeName}" <${fromEmail}>`,
       to: order.customerEmail,
-      subject: isDelivered ? `🎉 Your order has been delivered — ${order.orderNumber}` : `✅ Order confirmed — ${order.orderNumber}`,
+      subject: isDelivered
+        ? `🎉 Your order has been delivered — ${productLabel ?? storeName}`
+        : `✅ Order confirmed — ${productLabel ?? storeName}`,
       html,
     });
 
@@ -176,6 +201,9 @@ export async function sendOrderReceipt(order) {
       </tr>`
     ).join('');
 
+    const productNames = items.map(i => i.product?.name).filter(Boolean);
+    const productLabel = productNames.length > 0 ? productNames.join(', ') : null;
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -184,13 +212,12 @@ export async function sendOrderReceipt(order) {
           <div style="background:#1d4ed8;padding:28px 24px;text-align:center">
             <h1 style="color:#fff;margin:0;font-size:22px">✅ Order Confirmed!</h1>
             <p style="color:#bfdbfe;margin:6px 0 8px;font-size:13px">Thank you for your order with ${storeName}</p>
-            <p style="color:#fff;margin:0;font-size:20px;font-weight:bold;letter-spacing:1px">${order.orderNumber}</p>
+            ${productLabel ? `<p style="color:#fff;margin:0;font-size:16px;font-weight:600">${productLabel}</p>` : ''}
           </div>
           <div style="padding:24px">
             <p style="font-size:15px;color:#374151;margin:0 0 20px">Hi <strong>${order.customerName}</strong>, we've received your order and our team will be in touch shortly to confirm your delivery.</p>
 
             <div style="background:#f8fafc;border-radius:8px;padding:16px;margin-bottom:20px;font-size:14px;line-height:1.9">
-              <div><span style="color:#6b7280">Order Number;</span> <strong style="color:#1d4ed8">${order.orderNumber}</strong></div>
               <div><span style="color:#6b7280">Delivery to;</span> ${order.address}, ${order.state}</div>
               ${order.customerPhone2 ? `<div><span style="color:#6b7280">Alt. Phone;</span> ${order.customerPhone2}</div>` : ''}
             </div>
@@ -229,7 +256,7 @@ export async function sendOrderReceipt(order) {
     await transporter.sendMail({
       from: `"${storeName}" <${fromEmail}>`,
       to: order.customerEmail,
-      subject: `✅ Order confirmed — ${order.orderNumber}`,
+      subject: `✅ Order confirmed — ${productLabel ?? storeName}`,
       html,
     });
 
