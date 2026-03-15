@@ -527,27 +527,33 @@ export async function exportOrdersToExcel(query, res) {
     take: 10000,
   });
 
-  const rows = orders.map(o => ({
-    orderNumber:    o.orderNumber,
-    customerName:   o.customerName,
-    customerPhone:  o.customerPhone,
-    customerPhone2: o.customerPhone2 ?? '',
-    state:          o.state,
-    city:           o.city ?? '',
-    address:        o.address,
-    status:         o.status,
-    paymentStatus:  o.paymentStatus,
-    products:       o.items.map(i => `${i.product.name}${i.variation ? ` (${i.variation})` : ''} x${i.quantity}`).join(', '),
-    totalAmount:    Number(o.totalAmount),
-    source:         o.source,
-    agent:          o.agent?.name ?? '',
-    assignedStaff:  o.assignedStaff?.name ?? '',
-    tags:           (o.tags ?? []).join(', '),
-    notes:          o.notes ?? '',
-    comment:        o.comment ?? '',
-    scheduledDate:  o.scheduledDate ? new Date(o.scheduledDate).toLocaleString() : '',
-    createdAt:      new Date(o.createdAt).toLocaleString(),
-  }));
+  const rows = orders.map(o => {
+    const total = Number(o.totalAmount ?? 0);
+    const fee   = Number(o.deliveryFee ?? 0);
+    return {
+      orderNumber:    o.orderNumber,
+      customerName:   o.customerName,
+      customerPhone:  o.customerPhone,
+      customerPhone2: o.customerPhone2 ?? '',
+      state:          o.state,
+      city:           o.city ?? '',
+      address:        o.address,
+      status:         o.status,
+      paymentStatus:  o.paymentStatus,
+      products:       o.items.map(i => `${i.product.name}${i.variation ? ` (${i.variation})` : ''} x${i.quantity}`).join(', '),
+      totalAmount:    total,
+      deliveryFee:    fee,
+      netRemitted:    o.paymentStatus === 'REMITTED' ? total - fee : '',
+      source:         o.source,
+      agent:          o.agent?.name ?? '',
+      assignedStaff:  o.assignedStaff?.name ?? '',
+      tags:           (o.tags ?? []).join(', '),
+      notes:          o.notes ?? '',
+      comment:        o.comment ?? '',
+      scheduledDate:  o.scheduledDate ? new Date(o.scheduledDate).toLocaleString() : '',
+      createdAt:      new Date(o.createdAt).toLocaleString(),
+    };
+  });
 
   await sendExcel(res, {
     filename: `orders-${new Date().toISOString().slice(0, 10)}.xlsx`,
@@ -563,8 +569,10 @@ export async function exportOrdersToExcel(query, res) {
       { header: 'Status',        key: 'status',         width: 18 },
       { header: 'Payment',       key: 'paymentStatus',  width: 12 },
       { header: 'Products',      key: 'products',       width: 40 },
-      { header: 'Total (₦)',     key: 'totalAmount',    width: 14 },
-      { header: 'Source',        key: 'source',         width: 12 },
+      { header: 'Total (₦)',        key: 'totalAmount',  width: 14 },
+      { header: 'Delivery Fee (₦)', key: 'deliveryFee',  width: 16 },
+      { header: 'Net Remitted (₦)', key: 'netRemitted',  width: 16 },
+      { header: 'Source',           key: 'source',       width: 12 },
       { header: 'Agent',         key: 'agent',          width: 18 },
       { header: 'Staff',         key: 'assignedStaff',  width: 18 },
       { header: 'Tags',          key: 'tags',           width: 20 },
