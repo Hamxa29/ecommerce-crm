@@ -48,7 +48,7 @@ async function processPendingReminders() {
   if (orders.length === 0) return;
 
   const brandName  = settings.storeName  ?? '';
-  const brandPhone = settings.brandPhone ?? '';
+  const brandPhone = settings.whatsappNumber ?? settings.phoneNumber ?? '';
 
   for (const order of orders) {
     try {

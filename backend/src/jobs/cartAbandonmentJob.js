@@ -34,7 +34,7 @@ export function startCartAbandonmentJob() {
       // Fetch brand info and the message template
       const settings = await prisma.storeSettings.findUnique({ where: { id: 'singleton' } });
       const brandName  = settings?.storeName  ?? '';
-      const brandPhone = settings?.brandPhone ?? '';
+      const brandPhone = settings?.whatsappNumber ?? settings?.phoneNumber ?? '';
 
       const template = rule.templateId
         ? await prisma.whatsappTemplate.findUnique({ where: { id: rule.templateId } })

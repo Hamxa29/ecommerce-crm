@@ -146,7 +146,7 @@ export async function sendBroadcast({ accountId, orderIds, templateId, customMes
 
   const settings = await prisma.storeSettings.findUnique({ where: { id: 'singleton' } });
   const brandName  = settings?.storeName ?? '';
-  const brandPhone = settings?.brandPhone ?? '';
+  const brandPhone = settings?.whatsappNumber ?? settings?.phoneNumber ?? '';
 
   const orders = await prisma.order.findMany({
     where: { id: { in: orderIds } },
@@ -242,7 +242,7 @@ export async function triggerAutomationForOrder(order, newStatus) {
   // Fetch brand details from store settings once
   const settings = await prisma.storeSettings.findUnique({ where: { id: 'singleton' } });
   const brandName  = settings?.storeName ?? '';
-  const brandPhone = settings?.brandPhone ?? '';
+  const brandPhone = settings?.whatsappNumber ?? settings?.phoneNumber ?? '';
 
   for (const rule of rules) {
     const execute = async () => {
