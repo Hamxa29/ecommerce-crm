@@ -90,6 +90,7 @@ const BULK_ACTIONS = [
   { value: 'status:SWITCHED_OFF', label: 'Number Switched Off' },
   { value: 'status:FAILED', label: 'Mark Failed' },
   { value: 'status:CANCELLED', label: 'Cancel Orders' },
+  { value: 'remit', label: 'Mark Cash Remitted' },
   { value: 'delete', label: 'Delete Orders (Permanent)' },
 ];
 
@@ -183,6 +184,9 @@ export default function Orders() {
   const [deliveredModal, setDeliveredModal] = useState(false);
   const [bulkAgentId, setBulkAgentId] = useState('');
 
+  // Remit modal state
+  const [remitModal, setRemitModal] = useState(false);
+
   const importRef = useRef(null);
 
   const { data: agentsData } = useQuery({
@@ -229,6 +233,10 @@ export default function Orders() {
     }
     if ((bulkAction === 'status:DELIVERED' || bulkAction === 'status:FAILED') && overrideAgentId === undefined) {
       setDeliveredModal(true);
+      return;
+    }
+    if (bulkAction === 'remit') {
+      setRemitModal(true);
       return;
     }
     if (bulkAction.startsWith('status:')) {
@@ -528,6 +536,59 @@ export default function Orders() {
                 <button onClick={() => { setDeliveredModal(false); executeBulk(undefined, bulkAgentId || null); setBulkAgentId(''); }}
                   className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium">
                   Confirm
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Cash Remittance confirmation modal */}
+      {remitModal && (() => {
+        const selectedOrders = orders.filter(o => selectedIds.includes(o.id));
+        const totalCollected = selectedOrders.reduce((s, o) => s + Number(o.totalAmount ?? 0), 0);
+        const totalFees      = selectedOrders.reduce((s, o) => s + Number(o.deliveryFee ?? 0), 0);
+        const netRemitted    = totalCollected - totalFees;
+        const fmt = (n) => `₦${Number(n).toLocaleString('en-NG')}`;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                Cash Remittance Summary
+              </h3>
+              <p className="text-xs text-gray-500">{selectedOrders.length} order{selectedOrders.length !== 1 ? 's' : ''} selected</p>
+
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Total collected from customers</span>
+                  <span className="font-medium">{fmt(totalCollected)}</span>
+                </div>
+                <div className="flex justify-between text-red-600">
+                  <span>Agent delivery fees (deducted)</span>
+                  <span>– {fmt(totalFees)}</span>
+                </div>
+                <div className="flex justify-between border-t pt-2 font-bold text-gray-900 text-base">
+                  <span>Amount remitted to us</span>
+                  <span className="text-green-700">{fmt(netRemitted)}</span>
+                </div>
+              </div>
+
+              {selectedOrders.some(o => o.paymentMethod !== 'COD') && (
+                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+                  Note: some selected orders are not COD. Only COD orders should be remitted.
+                </p>
+              )}
+
+              <div className="flex gap-3">
+                <button onClick={() => setRemitModal(false)}
+                  className="flex-1 border rounded-lg py-2 text-sm hover:bg-gray-50">Cancel</button>
+                <button onClick={() => {
+                  setRemitModal(false);
+                  bulkMutation.mutate({ action: 'remit', payload: {} });
+                }}
+                  className="flex-1 bg-green-600 text-white rounded-lg py-2 text-sm font-semibold hover:bg-green-700">
+                  Confirm Remittance
                 </button>
               </div>
             </div>
