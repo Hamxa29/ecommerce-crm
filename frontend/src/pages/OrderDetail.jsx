@@ -387,11 +387,10 @@ export default function OrderDetail() {
             {order.comment && <div><span className="text-gray-500 block">Comment</span><p className="mt-0.5 text-gray-700">{order.comment}</p></div>}
           </div>
 
-          {/* Cash Remittance Panel — COD + DELIVERED + agent assigned + not yet remitted */}
+          {/* Cash Remittance Panel — COD + DELIVERED + not yet remitted */}
           {order.status === 'DELIVERED' &&
            order.paymentMethod === 'COD' &&
-           order.paymentStatus !== 'REMITTED' &&
-           order.agent && (() => {
+           order.paymentStatus !== 'REMITTED' && (() => {
             const total = Number(order.totalAmount ?? 0);
             const fee   = Number(order.deliveryFee ?? 0);
             const net   = total - fee;
@@ -401,7 +400,10 @@ export default function OrderDetail() {
                   <Banknote size={15} className="text-amber-600" /> Cash Remittance
                 </h3>
                 <p className="text-xs text-gray-500">
-                  Agent <span className="font-medium text-gray-700">{order.agent.name}</span> collected cash from customer. Once they hand over the money, mark it as remitted.
+                  {order.agent
+                    ? <>Agent <span className="font-medium text-gray-700">{order.agent.name}</span> collected cash from customer.</>
+                    : 'Cash was collected from customer.'}{' '}
+                  Once the money is handed over, mark it as remitted.
                 </p>
                 <div className="bg-gray-50 rounded-lg p-3 space-y-2 text-sm">
                   <div className="flex justify-between">
@@ -418,7 +420,7 @@ export default function OrderDetail() {
                   </div>
                 </div>
                 <button
-                  onClick={() => { if (window.confirm(`Confirm that ${order.agent.name} has remitted ${formatNGN(net)} to the store?`)) remitMutation.mutate(); }}
+                  onClick={() => { if (window.confirm(`Confirm remittance of ${formatNGN(net)} to the store?`)) remitMutation.mutate(); }}
                   disabled={remitMutation.isPending}
                   className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-medium py-2 rounded-lg transition"
                 >
