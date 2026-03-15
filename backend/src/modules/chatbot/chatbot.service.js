@@ -461,6 +461,16 @@ ${settings.chatbotSystemPrompt ? `\nADDITIONAL INSTRUCTIONS:\n${settings.chatbot
       }
       if (isCreditExhausted(primaryErr)) {
         console.warn(`[Chatbot] ${provider} credits exhausted — switching to fallback provider`);
+        const fallbackProvider = provider === 'openai' ? 'anthropic' : 'openai';
+        const fallbackKey = fallbackProvider === 'openai' ? getOpenaiKey(settings) : getAnthropicKey(settings);
+        if (!fallbackKey) {
+          // No fallback key — give a helpful message about the primary failure
+          throw new Error(
+            `${provider === 'openai' ? 'OpenAI' : 'Anthropic'} credits are exhausted. ` +
+            `Add credits at ${provider === 'openai' ? 'platform.openai.com/billing' : 'console.anthropic.com/billing'}, ` +
+            `or add a ${fallbackProvider === 'openai' ? 'OpenAI' : 'Anthropic'} key as fallback.`
+          );
+        }
         try {
           if (provider === 'openai') {
             finalResponse = await runAnthropicLoop(systemPrompt, updatedMessages, model, phone, settings, instanceName);
