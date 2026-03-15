@@ -302,6 +302,7 @@ function isCreditExhausted(err) {
 // ── Anthropic agentic loop ────────────────────────────────────────────────────
 async function runAnthropicLoop(systemPrompt, messages, model, phone, settings, instanceName) {
   const apiKey = getAnthropicKey(settings);
+  if (!apiKey) throw new Error('No Anthropic API key configured. Add your key in AI Chatbot settings.');
   const anthropic = new Anthropic({ apiKey });
   let loopMessages = [...messages];
   let finalResponse = '';
@@ -346,6 +347,7 @@ async function runAnthropicLoop(systemPrompt, messages, model, phone, settings, 
 // ── OpenAI agentic loop ───────────────────────────────────────────────────────
 async function runOpenAILoop(systemPrompt, messages, model, phone, settings, instanceName) {
   const apiKey = getOpenaiKey(settings);
+  if (!apiKey) throw new Error('No OpenAI API key configured. Add your key in AI Chatbot settings.');
   const openai = new OpenAI({ apiKey });
   // Convert Anthropic-style messages to OpenAI format (they're compatible for simple text messages)
   let loopMessages = [
