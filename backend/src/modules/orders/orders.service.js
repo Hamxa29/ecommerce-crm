@@ -4,6 +4,8 @@ import { writeAuditLog } from '../../utils/auditLog.js';
 import { generateOrderNumber } from '../../utils/orderNumber.js';
 import { sendExcel } from '../../utils/excelExport.js';
 import { sendNewOrderNotification, sendOrderStatusEmail } from '../../utils/emailNotification.js';
+import { sendText } from '../../config/evolution.js';
+import { normalizePhone } from '../../utils/phoneNormalizer.js';
 
 export async function listOrders(query) {
   const { skip, take, page, limit } = parsePagination(query);
@@ -26,12 +28,19 @@ export async function listOrders(query) {
 
 function buildOrderWhere(query) {
   const where = {};
-  if (query.status) where.status = query.status;
+  // Special virtual filter: unremitted COD delivered orders
+  if (query.unremitted === 'true' || query.unremitted === true) {
+    where.status = 'DELIVERED';
+    where.paymentMethod = 'COD';
+    where.paymentStatus = { not: 'REMITTED' };
+  } else {
+    if (query.status) where.status = query.status;
+    if (query.paymentStatus) where.paymentStatus = query.paymentStatus;
+  }
   if (query.state) where.state = { contains: query.state, mode: 'insensitive' };
   if (query.agentId) where.agentId = query.agentId;
   if (query.staffId) where.assignedStaffId = query.staffId;
   if (query.source) where.source = query.source;
-  if (query.paymentStatus) where.paymentStatus = query.paymentStatus;
   if (query.search) {
     where.OR = [
       { customerName: { contains: query.search, mode: 'insensitive' } },
@@ -134,6 +143,72 @@ export async function updateOrder(id, data, actorId) {
   return order;
 }
 
+// ── WhatsApp receipt helper ───────────────────────────────────────────────────
+async function sendReceiptWhatsApp(order, settings) {
+  try {
+    const fmt = (n) => `NGN ${Number(n ?? 0).toLocaleString('en-NG')}`;
+
+    const itemLines = (order.items ?? [])
+      .map(i => `• ${i.product?.name ?? 'Item'} x${i.quantity} – ${fmt(i.subtotal)}`)
+      .join('\n');
+
+    const subtotal = Number(order.totalAmount ?? 0) - Number(order.deliveryFee ?? 0);
+    const footer = settings.invoiceFooterMessage ? `\n${settings.invoiceFooterMessage}` : '';
+
+    const msg = [
+      `✅ DELIVERY RECEIPT`,
+      `Order: #${order.orderNumber}`,
+      `Customer: ${order.customerName}`,
+      ``,
+      `Items:`,
+      itemLines || '• (no items)',
+      ``,
+      `Subtotal:     ${fmt(subtotal)}`,
+      `Delivery Fee: ${fmt(order.deliveryFee)}`,
+      `──────────────────`,
+      `TOTAL PAID:   ${fmt(order.totalAmount)}`,
+      ``,
+      `Thank you for shopping with ${settings.storeName ?? 'us'}!${footer}`,
+    ].join('\n');
+
+    // Find WA account: paymentLinkAccountId first, then any connected account
+    let account = null;
+    if (settings.paymentLinkAccountId) {
+      account = await prisma.whatsappAccount.findUnique({
+        where: { id: settings.paymentLinkAccountId },
+        select: { id: true, instanceName: true, status: true },
+      });
+      if (account?.status !== 'CONNECTED') account = null;
+    }
+    if (!account) {
+      account = await prisma.whatsappAccount.findFirst({
+        where: { status: 'CONNECTED' },
+        select: { id: true, instanceName: true },
+      });
+    }
+    if (!account) {
+      console.log('[Receipt WA] No connected WhatsApp account found — skipping receipt send');
+      return;
+    }
+
+    const phone = normalizePhone(order.customerPhone);
+    await sendText(account.instanceName, phone, msg);
+
+    await prisma.whatsappMessageLog.create({
+      data: {
+        accountId: account.id,
+        orderId:   order.id,
+        toPhone:   phone,
+        message:   msg,
+        status:    'sent',
+      },
+    });
+    console.log(`[Receipt WA] Sent receipt to ${phone} for order ${order.orderNumber}`);
+  } catch (err) {
+    console.error('[Receipt WA] Failed:', err.message);
+  }
+}
+
 export async function changeOrderStatus(id, newStatus, actorId, note, scheduledDate, reminderEnabled, reminderOffset) {
   const current = await prisma.order.findUniqueOrThrow({
     where: { id },
@@ -178,6 +253,15 @@ export async function changeOrderStatus(id, newStatus, actorId, note, scheduledD
   // Email customer on CONFIRMED or DELIVERED
   if (['CONFIRMED', 'DELIVERED'].includes(newStatus)) {
     sendOrderStatusEmail(order, newStatus).catch(e => console.error('[Orders] Status email error:', e.message));
+  }
+
+  // Auto-send WhatsApp receipt when delivered (if enabled in settings)
+  if (newStatus === 'DELIVERED') {
+    prisma.storeSettings.findUnique({ where: { id: 'singleton' } }).then(settings => {
+      if (settings?.sendCustomerInvoiceWa) {
+        sendReceiptWhatsApp(order, settings);
+      }
+    }).catch(console.error);
   }
 
   // Notify staff who scheduled + agent when status becomes SCHEDULED
