@@ -81,7 +81,7 @@ export default function Sidebar() {
     >
       <div className="flex items-center h-14 px-4 border-b border-sidebar-border shrink-0">
         {!collapsed && (
-          <span className="text-sm font-bold text-white truncate">E-Commerce CRM</span>
+          <span className="text-sm font-bold text-white truncate">Venda</span>
         )}
         <button
           onClick={toggleSidebar}

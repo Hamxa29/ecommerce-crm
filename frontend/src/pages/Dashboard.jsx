@@ -389,7 +389,7 @@ function CustomersTab({ stats, isLoading, selectedLabel }) {
 
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function Dashboard() {
-  const [period, setPeriod] = useState('7d');
+  const [period, setPeriod] = useState('today');
   const [activeTab, setActiveTab] = useState('overview');
 
   const { data: stats, isLoading, error } = useQuery({
