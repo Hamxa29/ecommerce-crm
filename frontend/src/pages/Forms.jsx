@@ -256,6 +256,7 @@ function FormModal({ form, onClose }) {
   const [bumpConfigs, setBumpConfigs] = useState(savedSettings.bumps ?? {});
   const [formType, setFormType] = useState(savedSettings.formType ?? 'order_form');
   const [paymentMethod, setPaymentMethod] = useState(form?.paymentMethod ?? null);
+  const [successRedirectUrl, setSuccessRedirectUrl] = useState(savedSettings.successRedirectUrl ?? '');
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('fields'); // 'fields' | 'products' | 'style'
 
@@ -317,7 +318,7 @@ function FormModal({ form, onClose }) {
       slug: slug.trim(),
       paymentMethod: paymentMethod || null,
       products: selectedProducts,
-      embedSettings: { header, subheader, submitText, fields, customFields, bumps: bumpConfigs, formType },
+      embedSettings: { header, subheader, submitText, fields, customFields, bumps: bumpConfigs, formType, successRedirectUrl: successRedirectUrl.trim() || null },
     });
   };
 
@@ -559,6 +560,13 @@ function FormModal({ form, onClose }) {
                 <input value={submitText} onChange={e => setSubmitText(e.target.value)}
                   placeholder="ORDER NOW →"
                   className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Thank You Page Redirect URL</label>
+                <input value={successRedirectUrl} onChange={e => setSuccessRedirectUrl(e.target.value)}
+                  placeholder="https://yoursite.com/thank-you"
+                  className="w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+                <p className="text-[10px] text-gray-400 mt-1">After the customer places an order, they will be redirected here. Leave blank to show the default confirmation screen.</p>
               </div>
             </div>
           )}

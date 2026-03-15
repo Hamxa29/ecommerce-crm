@@ -184,6 +184,8 @@ export default function Orders() {
   // Delivered modal state
   const [deliveredModal, setDeliveredModal] = useState(false);
   const [bulkAgentId, setBulkAgentId] = useState('');
+  const [bulkDeliveryFee, setBulkDeliveryFee] = useState('');
+  const [rejectedBumpIds, setRejectedBumpIds] = useState([]); // item ids customer declined
 
   // Remit modal state
   const [remitModal, setRemitModal] = useState(false);
@@ -237,11 +239,8 @@ export default function Orders() {
       const selectedOrders = orders.filter(o => selectedIds.includes(o.id));
       const selectedStates = [...new Set(selectedOrders.map(o => o.state).filter(Boolean))];
       const stateAgents = agents.filter(a => !a.states?.length || selectedStates.some(s => a.states.includes(s)));
-      // Auto-assign if exactly one agent covers the selected states — skip modal
-      if (stateAgents.length === 1) {
-        executeBulk(undefined, stateAgents[0].id);
-        return;
-      }
+      // Pre-select the single agent but always show modal to confirm fee + bumps
+      if (stateAgents.length === 1) setBulkAgentId(stateAgents[0].id);
       setDeliveredModal(true);
       return;
     }
@@ -265,6 +264,8 @@ export default function Orders() {
           agentId: overrideAgentId || undefined,
           reminderEnabled: reminder.enabled,
           reminderOffset: reminder.offset,
+          ...(status === 'DELIVERED' && bulkDeliveryFee !== '' ? { deliveryFee: bulkDeliveryFee } : {}),
+          ...(status === 'DELIVERED' && rejectedBumpIds.length ? { rejectedItemIds: rejectedBumpIds } : {}),
         },
       });
     } else {
@@ -484,19 +485,30 @@ export default function Orders() {
       {deliveredModal && (() => {
         const selectedOrders = orders.filter(o => selectedIds.includes(o.id));
         const selectedStates = [...new Set(selectedOrders.map(o => o.state).filter(Boolean))];
-        // Show agents that cover at least one of the selected orders' states, or agents with no states configured
         const stateAgents = agents.filter(a =>
           !a.states?.length || selectedStates.some(s => a.states.includes(s))
         );
         const hasAgents = agents.length > 0;
         const noAgentsForStates = hasAgents && stateAgents.length === 0;
         const stateLabel = selectedStates.length === 1 ? selectedStates[0] : `${selectedStates.length} states`;
+        // Collect all bump items across selected orders
+        const bumpItems = selectedOrders.flatMap(o =>
+          (o.items ?? []).filter(i => i.isUpsell).map(i => ({ ...i, orderNumber: o.orderNumber }))
+        );
+        const isDelivered = bulkAction === 'status:DELIVERED';
+
+        const closeModal = () => {
+          setDeliveredModal(false);
+          setBulkAgentId('');
+          setBulkDeliveryFee('');
+          setRejectedBumpIds([]);
+        };
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4 max-h-[90vh] overflow-y-auto">
               <h3 className="font-semibold text-gray-900">
-                {bulkAction === 'status:DELIVERED' ? 'Who delivered these orders?' : 'Assign delivery agent'}
+                {isDelivered ? 'Confirm Delivery' : 'Assign delivery agent'}
               </h3>
               <p className="text-xs text-gray-500">
                 {selectedIds.length} order{selectedIds.length !== 1 ? 's' : ''} selected
@@ -514,43 +526,95 @@ export default function Orders() {
               {/* Agents exist but none cover selected states */}
               {noAgentsForStates && (
                 <div className="border border-amber-200 bg-amber-50 rounded-lg px-3 py-2.5 space-y-1.5">
-                  <p className="text-xs text-amber-700 font-medium">
-                    No delivery agents set up for {stateLabel}.
-                  </p>
+                  <p className="text-xs text-amber-700 font-medium">No delivery agents set up for {stateLabel}.</p>
                   <a href="/agents" className="flex items-center gap-1.5 text-xs text-primary hover:underline font-medium">
-                    <UserPlus size={12} />
-                    Add an agent for {stateLabel}
+                    <UserPlus size={12} />Add an agent for {stateLabel}
                   </a>
                 </div>
               )}
 
               {/* State-filtered agent list */}
               {stateAgents.length > 0 && (
-                <div className="max-h-64 overflow-y-auto border rounded-lg divide-y">
-                  <label className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50">
-                    <input type="radio" name="bulk-agent" value="" checked={bulkAgentId === ''}
-                      onChange={() => setBulkAgentId('')} className="accent-primary" />
-                    <span className="text-sm text-gray-500 italic">No delivery agent / skip</span>
-                  </label>
-                  {stateAgents.map(agent => (
-                    <label key={agent.id} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50">
-                      <input type="radio" name="bulk-agent" value={agent.id} checked={bulkAgentId === agent.id}
-                        onChange={() => setBulkAgentId(agent.id)} className="accent-primary" />
-                      <div className="min-w-0">
-                        <p className="text-sm text-gray-800">{agent.name}</p>
-                        {agent.states?.length > 0 && <p className="text-[10px] text-gray-400 truncate">{agent.states.join(', ')}</p>}
-                      </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-600 mb-1.5">Delivery agent</p>
+                  <div className="border rounded-lg divide-y">
+                    <label className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50">
+                      <input type="radio" name="bulk-agent" value="" checked={bulkAgentId === ''}
+                        onChange={() => setBulkAgentId('')} className="accent-primary" />
+                      <span className="text-sm text-gray-500 italic">No delivery agent / skip</span>
                     </label>
-                  ))}
+                    {stateAgents.map(agent => (
+                      <label key={agent.id} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50">
+                        <input type="radio" name="bulk-agent" value={agent.id} checked={bulkAgentId === agent.id}
+                          onChange={() => setBulkAgentId(agent.id)} className="accent-primary" />
+                        <div className="min-w-0">
+                          <p className="text-sm text-gray-800">{agent.name}</p>
+                          {agent.states?.length > 0 && <p className="text-[10px] text-gray-400 truncate">{agent.states.join(', ')}</p>}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Delivery fee */}
+              {isDelivered && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                    Agent delivery fee (NGN) <span className="text-gray-400 font-normal">— what the agent charges per order</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 1500"
+                    value={bulkDeliveryFee}
+                    onChange={e => setBulkDeliveryFee(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+              )}
+
+              {/* Bump / upsell confirmation */}
+              {isDelivered && bumpItems.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-gray-600 mb-1.5">
+                    Order bumps — did the customer accept these?
+                  </p>
+                  <div className="border rounded-lg divide-y">
+                    {bumpItems.map(item => {
+                      const rejected = rejectedBumpIds.includes(item.id);
+                      return (
+                        <label key={item.id} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50">
+                          <input
+                            type="checkbox"
+                            checked={!rejected}
+                            onChange={e => {
+                              if (e.target.checked) setRejectedBumpIds(ids => ids.filter(id => id !== item.id));
+                              else setRejectedBumpIds(ids => [...ids, item.id]);
+                            }}
+                            className="accent-primary"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-gray-800">{item.product?.name ?? 'Bump item'}</p>
+                            {selectedIds.length > 1 && (
+                              <p className="text-[10px] text-gray-400">Order #{item.orderNumber}</p>
+                            )}
+                          </div>
+                          {rejected && <span className="text-[10px] text-red-500 font-medium shrink-0">Will be removed</span>}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1">Unchecked items will be removed from the order and the total will be adjusted.</p>
                 </div>
               )}
 
               <div className="flex gap-3">
-                <button onClick={() => { setDeliveredModal(false); setBulkAgentId(''); }}
+                <button onClick={closeModal}
                   className="flex-1 border rounded-lg py-2 text-sm hover:bg-gray-50">Cancel</button>
-                <button onClick={() => { setDeliveredModal(false); executeBulk(undefined, bulkAgentId || null); setBulkAgentId(''); }}
+                <button onClick={() => { closeModal(); executeBulk(undefined, bulkAgentId || null); }}
                   className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium">
-                  Confirm
+                  {isDelivered ? 'Mark as Delivered' : 'Confirm'}
                 </button>
               </div>
             </div>

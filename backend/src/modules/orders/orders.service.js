@@ -291,12 +291,27 @@ export async function bulkAction(orderIds, action, payload, actorId) {
   for (const id of orderIds) {
     try {
       switch (action) {
-        case 'status':
+        case 'status': {
+          // Remove bump items the customer declined before changing status
+          if (payload.rejectedItemIds?.length) {
+            await prisma.orderItem.deleteMany({ where: { id: { in: payload.rejectedItemIds }, orderId: id } });
+            // Recalculate total
+            const remaining = await prisma.orderItem.findMany({ where: { orderId: id } });
+            const currentOrder = await prisma.order.findUnique({ where: { id }, select: { deliveryFee: true } });
+            const newSubtotal = remaining.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
+            await prisma.order.update({ where: { id }, data: { totalAmount: newSubtotal + Number(currentOrder.deliveryFee ?? 0) } });
+          }
           await changeOrderStatus(id, payload.status, actorId, payload.note, payload.scheduledDate, payload.reminderEnabled, payload.reminderOffset);
-          if (payload.agentId) {
-            await prisma.order.update({ where: { id }, data: { agentId: payload.agentId } });
+          const statusUpdateData = {};
+          if (payload.agentId) statusUpdateData.agentId = payload.agentId;
+          if (payload.status === 'DELIVERED' && payload.deliveryFee != null && payload.deliveryFee !== '') {
+            statusUpdateData.deliveryFee = Number(payload.deliveryFee);
+          }
+          if (Object.keys(statusUpdateData).length) {
+            await prisma.order.update({ where: { id }, data: statusUpdateData });
           }
           break;
+        }
         case 'assign_agent':
           await prisma.order.update({ where: { id }, data: { agentId: payload.agentId } });
           break;

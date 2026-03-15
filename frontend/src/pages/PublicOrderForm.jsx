@@ -408,6 +408,12 @@ export default function PublicOrderForm() {
         navigate(`/pay/${data.orderNumber}`);
         return;
       }
+      // COD: redirect to thank you page if configured, otherwise show confirmation
+      const redirectUrl = form?.embedSettings?.successRedirectUrl;
+      if (redirectUrl) {
+        window.location.href = redirectUrl;
+        return;
+      }
       setPlacedOrder(data);
     } catch (err) {
       setErrors({ submit: err?.response?.data?.error ?? 'Failed to place order. Please try again.' });
