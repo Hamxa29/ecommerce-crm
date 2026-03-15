@@ -106,24 +106,26 @@ function ChatbotSettings() {
   const [form, setForm] = useState(null);
   if (!form && settings) {
     setForm({
-      chatbotEnabled:       settings.chatbotEnabled ?? false,
-      chatbotAccountId:     settings.chatbotAccountId ?? '',
-      chatbotFallbackPhone: settings.chatbotFallbackPhone ?? '',
-      chatbotSystemPrompt:  settings.chatbotSystemPrompt ?? '',
-      chatbotProvider:      settings.chatbotProvider ?? 'anthropic',
-      chatbotApiKey:        '',  // never pre-filled for security
+      chatbotEnabled:        settings.chatbotEnabled ?? false,
+      chatbotAccountId:      settings.chatbotAccountId ?? '',
+      chatbotFallbackPhone:  settings.chatbotFallbackPhone ?? '',
+      chatbotSystemPrompt:   settings.chatbotSystemPrompt ?? '',
+      chatbotProvider:       settings.chatbotProvider ?? 'anthropic',
+      chatbotAnthropicKey:   '',  // never pre-filled
+      chatbotOpenaiKey:      '',  // never pre-filled
     });
   }
 
   const saveMutation = useMutation({
     mutationFn: (data) => {
       const payload = { ...data };
-      if (!payload.chatbotApiKey) delete payload.chatbotApiKey; // don't overwrite with blank
+      if (!payload.chatbotAnthropicKey) delete payload.chatbotAnthropicKey;
+      if (!payload.chatbotOpenaiKey)    delete payload.chatbotOpenaiKey;
       return api.saveSettings(payload);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['store-settings'] });
-      setForm(f => ({ ...f, chatbotApiKey: '' })); // clear key field after save
+      setForm(f => ({ ...f, chatbotAnthropicKey: '', chatbotOpenaiKey: '' }));
     },
   });
 
@@ -164,7 +166,7 @@ function ChatbotSettings() {
         {/* AI Provider */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            AI Provider
+            Primary AI Provider
           </label>
           <div className="grid grid-cols-2 gap-3">
             {[
@@ -188,13 +190,37 @@ function ChatbotSettings() {
           </div>
         </div>
 
-        {/* API Key */}
+        {/* Primary API Key */}
         <ApiKeyField
           provider={form.chatbotProvider}
-          value={form.chatbotApiKey}
-          onChange={v => set('chatbotApiKey', v)}
-          keySet={settings?.chatbotApiKeySet}
+          value={form.chatbotProvider === 'openai' ? form.chatbotOpenaiKey : form.chatbotAnthropicKey}
+          onChange={v => set(form.chatbotProvider === 'openai' ? 'chatbotOpenaiKey' : 'chatbotAnthropicKey', v)}
+          keySet={form.chatbotProvider === 'openai' ? settings?.chatbotOpenaiKeySet : settings?.chatbotAnthropicKeySet}
         />
+
+        {/* Fallback API Key */}
+        {(() => {
+          const fallback = form.chatbotProvider === 'openai' ? 'anthropic' : 'openai';
+          const fallbackKeySet = fallback === 'openai' ? settings?.chatbotOpenaiKeySet : settings?.chatbotAnthropicKeySet;
+          return (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Fallback Provider Key <span className="text-gray-400 font-normal">(optional — auto-switch when primary runs out)</span>
+              </label>
+              <ApiKeyField
+                provider={fallback}
+                value={fallback === 'openai' ? form.chatbotOpenaiKey : form.chatbotAnthropicKey}
+                onChange={v => set(fallback === 'openai' ? 'chatbotOpenaiKey' : 'chatbotAnthropicKey', v)}
+                keySet={fallbackKeySet}
+              />
+              {(settings?.chatbotAnthropicKeySet && settings?.chatbotOpenaiKeySet) && (
+                <p className="text-xs text-green-600 font-medium mt-1.5">
+                  Both keys saved — bot will auto-switch providers if one runs out of credits.
+                </p>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Account selector */}
         <div>

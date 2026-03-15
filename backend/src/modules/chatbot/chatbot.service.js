@@ -281,11 +281,27 @@ async function executeTool(toolName, toolInput, phone, settings, instanceName) {
   return { error: `Unknown tool: ${toolName}` };
 }
 
+// ── Key helpers ───────────────────────────────────────────────────────────────
+function getAnthropicKey(settings) {
+  return settings.chatbotAnthropicKey || process.env.ANTHROPIC_API_KEY;
+}
+function getOpenaiKey(settings) {
+  return settings.chatbotOpenaiKey || process.env.OPENAI_API_KEY;
+}
+
+// ── Detect credit/quota exhaustion errors ─────────────────────────────────────
+function isCreditExhausted(err) {
+  const msg  = (err.message ?? '').toLowerCase();
+  const code = err.status ?? err.statusCode ?? 0;
+  return code === 401 || code === 402 || code === 429
+    || msg.includes('credit') || msg.includes('quota')
+    || msg.includes('billing') || msg.includes('insufficient')
+    || msg.includes('overloaded') || msg.includes('rate limit');
+}
+
 // ── Anthropic agentic loop ────────────────────────────────────────────────────
 async function runAnthropicLoop(systemPrompt, messages, model, phone, settings, instanceName) {
-  const apiKey = (settings.chatbotProvider === 'anthropic' && settings.chatbotApiKey)
-    ? settings.chatbotApiKey
-    : process.env.ANTHROPIC_API_KEY;
+  const apiKey = getAnthropicKey(settings);
   const anthropic = new Anthropic({ apiKey });
   let loopMessages = [...messages];
   let finalResponse = '';
@@ -329,9 +345,7 @@ async function runAnthropicLoop(systemPrompt, messages, model, phone, settings, 
 
 // ── OpenAI agentic loop ───────────────────────────────────────────────────────
 async function runOpenAILoop(systemPrompt, messages, model, phone, settings, instanceName) {
-  const apiKey = (settings.chatbotProvider === 'openai' && settings.chatbotApiKey)
-    ? settings.chatbotApiKey
-    : process.env.OPENAI_API_KEY;
+  const apiKey = getOpenaiKey(settings);
   const openai = new OpenAI({ apiKey });
   // Convert Anthropic-style messages to OpenAI format (they're compatible for simple text messages)
   let loopMessages = [
@@ -428,10 +442,29 @@ ${settings.chatbotSystemPrompt ? `\nADDITIONAL INSTRUCTIONS:\n${settings.chatbot
     ];
 
     let finalResponse;
-    if (provider === 'openai') {
-      finalResponse = await runOpenAILoop(systemPrompt, updatedMessages, settings.chatbotModel, phone, settings, instanceName);
-    } else {
-      finalResponse = await runAnthropicLoop(systemPrompt, updatedMessages, settings.chatbotModel, phone, settings, instanceName);
+    const model = settings.chatbotModel;
+    try {
+      if (provider === 'openai') {
+        finalResponse = await runOpenAILoop(systemPrompt, updatedMessages, model, phone, settings, instanceName);
+      } else {
+        finalResponse = await runAnthropicLoop(systemPrompt, updatedMessages, model, phone, settings, instanceName);
+      }
+    } catch (primaryErr) {
+      if (isCreditExhausted(primaryErr)) {
+        console.warn(`[Chatbot] ${provider} failed (${primaryErr.message}) — switching to fallback provider`);
+        try {
+          if (provider === 'openai') {
+            finalResponse = await runAnthropicLoop(systemPrompt, updatedMessages, model, phone, settings, instanceName);
+          } else {
+            finalResponse = await runOpenAILoop(systemPrompt, updatedMessages, model, phone, settings, instanceName);
+          }
+        } catch (fallbackErr) {
+          console.error('[Chatbot] Fallback provider also failed:', fallbackErr.message);
+          throw fallbackErr;
+        }
+      } else {
+        throw primaryErr;
+      }
     }
 
     // Save the full turn to DB

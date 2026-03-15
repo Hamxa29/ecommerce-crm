@@ -418,7 +418,8 @@ model StoreSettings {
   chatbotSystemPrompt  String?  // custom personality / rules appended to system prompt
   chatbotFallbackPhone String?  // staff phone to notify when bot can't answer
   chatbotProvider      String  @default("anthropic")  // "anthropic" | "openai"
-  chatbotApiKey        String?  // encrypted at rest via DB; falls back to env var if blank
+  chatbotAnthropicKey  String?  // Anthropic API key (falls back to ANTHROPIC_API_KEY env)
+  chatbotOpenaiKey     String?  // OpenAI API key (falls back to OPENAI_API_KEY env)
   chatbotModel         String  @default("claude-sonnet-4-6")
 
   updatedAt             DateTime @updatedAt

@@ -12,8 +12,8 @@ router.get('/', async (req, res, next) => {
   try {
     const settings = await getSettings();
     // Strip sensitive credentials — never expose to frontend
-    const { paymentProviderKey, paymentWebhookSecret, logisticsApiKey, chatbotApiKey, ...safe } = settings;
-    res.json({ ...safe, chatbotApiKeySet: !!chatbotApiKey });
+    const { paymentProviderKey, paymentWebhookSecret, logisticsApiKey, chatbotAnthropicKey, chatbotOpenaiKey, ...safe } = settings;
+    res.json({ ...safe, chatbotAnthropicKeySet: !!chatbotAnthropicKey, chatbotOpenaiKeySet: !!chatbotOpenaiKey });
   } catch (e) { next(e); }
 });
 
@@ -21,9 +21,10 @@ router.put('/', requireRole('ADMIN'), async (req, res, next) => {
   try {
     const data = { ...req.body };
     // Don't overwrite secret fields when frontend sends empty/null (key was never loaded into form)
-    if (!data.paymentProviderKey) delete data.paymentProviderKey;
+    if (!data.paymentProviderKey)   delete data.paymentProviderKey;
     if (!data.paymentWebhookSecret) delete data.paymentWebhookSecret;
-    if (!data.chatbotApiKey) delete data.chatbotApiKey;
+    if (!data.chatbotAnthropicKey)  delete data.chatbotAnthropicKey;
+    if (!data.chatbotOpenaiKey)     delete data.chatbotOpenaiKey;
     res.json(await updateSettings(data));
   } catch (e) { next(e); }
 });
