@@ -30,11 +30,14 @@ async function hasStaffRepliedInChatwoot(phone, sinceMs) {
     const conversations = convData.payload?.conversations ?? convData.payload ?? [];
     if (!conversations.length) return false;
 
-    // Check the latest conversation for any outgoing (agent) message after sinceMs
     const latestConv = conversations[0];
-    const messages   = latestConv.messages ?? [];
 
-    // message_type 1 = outgoing (agent reply), created_at is a Unix timestamp (seconds)
+    // Stop bot if conversation has been assigned to a human agent
+    if (latestConv.meta?.assignee?.id) return true;
+
+    // Also stop bot if any outgoing (agent) message was sent after this message arrived
+    // message_type 1 = outgoing, created_at is Unix timestamp in seconds
+    const messages = latestConv.messages ?? [];
     return messages.some(m => m.message_type === 1 && m.created_at * 1000 > sinceMs);
   } catch (e) {
     console.error('[Chatbot] Chatwoot staff check failed:', e.message);
