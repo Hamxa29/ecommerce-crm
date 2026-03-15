@@ -78,6 +78,7 @@ const STATUS_TABS = [
   { value: 'SWITCHED_OFF', label: 'Switched Off' },
   { value: 'CANCELLED', label: 'Cancelled' },
   { value: 'FAILED', label: 'Failed' },
+  { value: '__UNREMITTED__', label: 'Unremitted Cash' },
 ];
 
 const BULK_ACTIONS = [
@@ -191,7 +192,15 @@ export default function Orders() {
   });
   const agents = agentsData?.data ?? agentsData ?? [];
 
-  const params = { status: activeTab || undefined, search: search || undefined, state: stateFilter || undefined, page, limit: 50 };
+  const isUnremittedTab = activeTab === '__UNREMITTED__';
+  const params = {
+    status:      (!isUnremittedTab && activeTab) ? activeTab : undefined,
+    unremitted:  isUnremittedTab ? 'true' : undefined,
+    search:      search || undefined,
+    state:       stateFilter || undefined,
+    page,
+    limit: 50,
+  };
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['orders', params],
@@ -374,10 +383,18 @@ export default function Orders() {
                   <td className="px-4 py-3 text-gray-900">{formatNGN(order.totalAmount)}</td>
                   <td className="px-4 py-3"><OrderStatusBadge status={order.status} /></td>
                   <td className="px-4 py-3">
-                    {order.paymentMethod === 'PBD'
-                      ? <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">PBD</span>
-                      : <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">COD</span>
-                    }
+                    <div className="flex flex-col gap-1">
+                      {order.paymentMethod === 'PBD'
+                        ? <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">PBD</span>
+                        : <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">COD</span>
+                      }
+                      {order.paymentStatus === 'REMITTED' && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">Remitted</span>
+                      )}
+                      {order.status === 'DELIVERED' && order.paymentMethod === 'COD' && order.paymentStatus !== 'REMITTED' && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-700">Unremitted</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-gray-600">{order.agent?.name ?? '—'}</td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{formatDate(order.createdAt)}</td>

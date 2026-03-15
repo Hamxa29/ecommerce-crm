@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ordersApi } from '@/api/orders.api';
@@ -9,7 +9,7 @@ import { formatNGN, formatDate } from '@/lib/utils';
 import OrderStatusBadge from '@/components/shared/OrderStatusBadge';
 import PhoneLink from '@/components/shared/PhoneLink';
 import CalendarPicker from '@/components/shared/CalendarPicker';
-import { ArrowLeft, Clock, MessageCircle, Loader2, Trash2, Truck, CreditCard, CheckCircle2, UserPlus } from 'lucide-react';
+import { ArrowLeft, Clock, MessageCircle, Loader2, Trash2, Truck, CreditCard, CheckCircle2, UserPlus, Printer, Banknote } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 
 export default function OrderDetail() {
@@ -33,6 +33,30 @@ export default function OrderDetail() {
     queryFn: () => client.get('/agents', { params: { limit: 200 } }).then(r => r.data),
   });
   const agents = agentsData?.data ?? agentsData ?? [];
+
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => client.get('/settings').then(r => r.data),
+    staleTime: 60000,
+  });
+
+  const remitMutation = useMutation({
+    mutationFn: () => ordersApi.update(id, { paymentStatus: 'REMITTED' }),
+    onSuccess: () => {
+      qc.invalidateQueries(['order', id]);
+      qc.invalidateQueries(['orders']);
+    },
+  });
+
+  // Inject print-only styles
+  const printStyleRef = useRef(null);
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `@media print { body > * { display: none !important; } #receipt-print-area { display: block !important; position: fixed; inset: 0; background: white; padding: 24px; font-family: monospace; font-size: 13px; color: #000; z-index: 99999; } }`;
+    document.head.appendChild(style);
+    printStyleRef.current = style;
+    return () => { style.remove(); };
+  }, []);
 
   const statusMutation = useMutation({
     mutationFn: async () => {
@@ -97,6 +121,13 @@ export default function OrderDetail() {
         </div>
         <div className="ml-auto flex items-center gap-2">
           <OrderStatusBadge status={order.status} size="md" />
+          <button
+            onClick={() => window.print()}
+            title="Print / Save Receipt"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-lg hover:bg-gray-50 text-gray-600"
+          >
+            <Printer size={13} /> Receipt
+          </button>
           {user?.role === 'ADMIN' && (
             <button
               onClick={() => { if (window.confirm('Permanently delete this order? This cannot be undone.')) deleteMutation.mutate(); }}
@@ -333,6 +364,12 @@ export default function OrderDetail() {
                 )}
               </div>
             )}
+            {/* Remitted badge */}
+            {order.paymentStatus === 'REMITTED' && (
+              <div className="flex items-center gap-1.5 text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-xs font-medium">
+                <CheckCircle2 size={13} /> Cash Remitted to Store
+              </div>
+            )}
             <div className="flex justify-between"><span className="text-gray-500">Delivery Agent</span><span>{order.agent?.name ?? '—'}</span></div>
             <div className="flex justify-between"><span className="text-gray-500">Staff</span><span>{order.assignedStaff?.name ?? '—'}</span></div>
             {order.scheduledDate && (
@@ -349,6 +386,119 @@ export default function OrderDetail() {
             {order.notes && <div><span className="text-gray-500 block">Notes</span><p className="mt-0.5 text-gray-700">{order.notes}</p></div>}
             {order.comment && <div><span className="text-gray-500 block">Comment</span><p className="mt-0.5 text-gray-700">{order.comment}</p></div>}
           </div>
+
+          {/* Cash Remittance Panel — COD + DELIVERED + agent assigned + not yet remitted */}
+          {order.status === 'DELIVERED' &&
+           order.paymentMethod === 'COD' &&
+           order.paymentStatus !== 'REMITTED' &&
+           order.agent && (() => {
+            const total = Number(order.totalAmount ?? 0);
+            const fee   = Number(order.deliveryFee ?? 0);
+            const net   = total - fee;
+            return (
+              <div className="bg-white rounded-xl border border-amber-200 p-5 text-sm space-y-3">
+                <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+                  <Banknote size={15} className="text-amber-600" /> Cash Remittance
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Agent <span className="font-medium text-gray-700">{order.agent.name}</span> collected cash from customer. Once they hand over the money, mark it as remitted.
+                </p>
+                <div className="bg-gray-50 rounded-lg p-3 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Collected from customer</span>
+                    <span className="font-medium">{formatNGN(total)}</span>
+                  </div>
+                  <div className="flex justify-between text-red-600">
+                    <span>Agent delivery fee (deducted)</span>
+                    <span>– {formatNGN(fee)}</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2 font-bold text-gray-900">
+                    <span>Amount remitted to us</span>
+                    <span className="text-green-700">{formatNGN(net)}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { if (window.confirm(`Confirm that ${order.agent.name} has remitted ${formatNGN(net)} to the store?`)) remitMutation.mutate(); }}
+                  disabled={remitMutation.isPending}
+                  className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-medium py-2 rounded-lg transition"
+                >
+                  {remitMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+                  Mark as Remitted
+                </button>
+                {remitMutation.isError && (
+                  <p className="text-xs text-red-500 text-center">Failed — please try again.</p>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+
+      {/* Hidden receipt — shown only when printing */}
+      <div id="receipt-print-area" style={{ display: 'none' }}>
+        <div style={{ maxWidth: 400, margin: '0 auto', fontFamily: 'monospace', fontSize: 13, lineHeight: 1.6 }}>
+          <div style={{ textAlign: 'center', marginBottom: 12 }}>
+            <p style={{ fontSize: 16, fontWeight: 'bold', margin: 0 }}>{settings?.storeName ?? 'Store'}</p>
+            {settings?.storeAddress && <p style={{ margin: '2px 0' }}>{settings.storeAddress}</p>}
+            {settings?.phoneNumber && <p style={{ margin: '2px 0' }}>Tel: {settings.phoneNumber}</p>}
+            {settings?.email && <p style={{ margin: '2px 0' }}>{settings.email}</p>}
+          </div>
+
+          <hr style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+          <p style={{ textAlign: 'center', fontWeight: 'bold', margin: '4px 0' }}>DELIVERY RECEIPT</p>
+          <hr style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+
+          <table style={{ width: '100%', fontSize: 12 }}>
+            <tbody>
+              <tr><td>Order #</td><td style={{ textAlign: 'right' }}>{order.orderNumber}</td></tr>
+              <tr><td>Date</td><td style={{ textAlign: 'right' }}>{new Date(order.updatedAt ?? order.createdAt).toLocaleDateString('en-NG')}</td></tr>
+              <tr><td>Customer</td><td style={{ textAlign: 'right' }}>{order.customerName}</td></tr>
+              <tr><td>Phone</td><td style={{ textAlign: 'right' }}>{order.customerPhone}</td></tr>
+              <tr><td>Address</td><td style={{ textAlign: 'right', maxWidth: 180 }}>{order.address}, {order.state}</td></tr>
+              {order.agent && <tr><td>Agent</td><td style={{ textAlign: 'right' }}>{order.agent.name}</td></tr>}
+            </tbody>
+          </table>
+
+          <hr style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+          <p style={{ fontWeight: 'bold', margin: '4px 0' }}>ITEMS</p>
+          <table style={{ width: '100%', fontSize: 12 }}>
+            <tbody>
+              {(order.items ?? []).map((item, i) => (
+                <tr key={i}>
+                  <td style={{ paddingRight: 8 }}>{item.product?.name} x{item.quantity}</td>
+                  <td style={{ textAlign: 'right' }}>NGN {Number(item.subtotal).toLocaleString('en-NG')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <hr style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+          <table style={{ width: '100%', fontSize: 12 }}>
+            <tbody>
+              <tr>
+                <td>Subtotal</td>
+                <td style={{ textAlign: 'right' }}>NGN {(Number(order.totalAmount) - Number(order.deliveryFee ?? 0)).toLocaleString('en-NG')}</td>
+              </tr>
+              <tr>
+                <td>Delivery Fee</td>
+                <td style={{ textAlign: 'right' }}>NGN {Number(order.deliveryFee ?? 0).toLocaleString('en-NG')}</td>
+              </tr>
+              <tr style={{ fontWeight: 'bold', fontSize: 14 }}>
+                <td>TOTAL PAID</td>
+                <td style={{ textAlign: 'right' }}>NGN {Number(order.totalAmount).toLocaleString('en-NG')}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <hr style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+          <p style={{ margin: '2px 0' }}>Payment: {order.paymentMethod === 'COD' ? 'Cash on Delivery' : 'Pay Before Delivery'}</p>
+
+          {settings?.invoiceFooterMessage && (
+            <>
+              <hr style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+              <p style={{ textAlign: 'center', fontSize: 11, margin: 0 }}>{settings.invoiceFooterMessage}</p>
+            </>
+          )}
         </div>
       </div>
     </div>
