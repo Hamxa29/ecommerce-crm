@@ -483,7 +483,11 @@ ${settings.chatbotSystemPrompt ? `\nADDITIONAL INSTRUCTIONS:\n${settings.chatbot
   } catch (e) {
     console.error('[Chatbot] processMessage error:', e.message);
     if (instanceName) {
+      // Real WhatsApp message — send graceful fallback to customer
       sendText(instanceName, phone, "Sorry, I'm having a moment! Our team will be in touch shortly.").catch(() => {});
+    } else {
+      // Test mode — re-throw so the caller can surface the real error
+      throw e;
     }
   }
 }

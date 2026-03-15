@@ -304,10 +304,12 @@ function ChatbotSettings() {
           <CopyButton text={webhookUrl} />
         </div>
 
-        <div className="mt-3 flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
-          <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
-          <span>If your backend is deployed, use the production URL instead of localhost.</span>
-        </div>
+        {webhookUrl.includes('localhost') && (
+          <div className="mt-3 flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+            <AlertCircle size={13} className="mt-0.5 flex-shrink-0" />
+            <span>This is a localhost URL — Evolution API cannot reach it. Use your deployed backend URL instead.</span>
+          </div>
+        )}
       </div>
 
       {/* Test bot */}
