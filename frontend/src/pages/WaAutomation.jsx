@@ -40,14 +40,14 @@ function RuleModal({ rule, accounts, onClose }) {
 
   const mutation = useMutation({
     mutationFn: rule ? (d) => api.update(rule.id, d) : api.create,
-    onSuccess: () => { qc.invalidateQueries(['wa-automation']); onClose(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['wa-automation'] }); onClose(); },
     onError: (e) => setError(e.response?.data?.error ?? 'Failed'),
   });
 
   const saveTemplateMutation = useMutation({
     mutationFn: (d) => api.saveTemplate(d),
     onSuccess: (saved) => {
-      qc.invalidateQueries(['wa-templates']);
+      qc.invalidateQueries({ queryKey: ['wa-templates'] });
       setForm(f => ({ ...f, templateId: saved.id, customMessage: '' }));
       setShowSaveAs(false);
       setSaveAsName('');
@@ -225,12 +225,12 @@ export default function WaAutomation() {
 
   const deleteMutation = useMutation({
     mutationFn: api.delete,
-    onSuccess: () => qc.invalidateQueries(['wa-automation']),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['wa-automation'] }),
   });
 
   const toggleMutation = useMutation({
     mutationFn: ({ id, enabled }) => api.update(id, { enabled }),
-    onSuccess: () => qc.invalidateQueries(['wa-automation']),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['wa-automation'] }),
   });
 
   const statusLabel = (v) => ORDER_STATUSES.find(s => s.value === v)?.label ?? v;
@@ -340,7 +340,7 @@ function PendingReminderSection() {
   const mutation = useMutation({
     mutationFn: (data) => client.put('/settings', data).then(r => r.data),
     onSuccess: () => {
-      qc.invalidateQueries(['store-settings']);
+      qc.invalidateQueries({ queryKey: ['store-settings'] });
       setSaved(true);
       setForm(null);
       setError('');

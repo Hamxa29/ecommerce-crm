@@ -19,7 +19,7 @@ function CategoryModal({ cat, onClose }) {
 
   const mutation = useMutation({
     mutationFn: (data) => isEdit ? categoriesApi.update(cat.id, data) : categoriesApi.create(data),
-    onSuccess: () => { qc.invalidateQueries(['categories']); onClose(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['categories'] }); onClose(); },
     onError: (e) => setError(e.response?.data?.error ?? 'Save failed'),
   });
 
@@ -84,7 +84,7 @@ function ProductModal({ product, defaultCategoryId, onClose }) {
 
   const mutation = useMutation({
     mutationFn: (data) => isEdit ? productsApi.update(product.id, data) : productsApi.create(data),
-    onSuccess: () => { qc.invalidateQueries(['products']); onClose(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); onClose(); },
     onError: (e) => setError(e.response?.data?.error ?? 'Save failed'),
   });
 
@@ -260,17 +260,17 @@ export default function Products() {
 
   const deleteProdMutation = useMutation({
     mutationFn: (id) => productsApi.remove(id),
-    onSuccess: () => { qc.invalidateQueries(['products']); setDeleteProductTarget(null); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); setDeleteProductTarget(null); },
   });
 
   const deleteCatMutation = useMutation({
     mutationFn: (id) => categoriesApi.remove(id),
-    onSuccess: () => { qc.invalidateQueries(['categories']); setDeleteCatTarget(null); setSelectedCatId(''); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['categories'] }); setDeleteCatTarget(null); setSelectedCatId(''); },
   });
 
   const dupMutation = useMutation({
     mutationFn: (id) => productsApi.duplicate(id),
-    onSuccess: () => qc.invalidateQueries(['products']),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['products'] }),
   });
 
   const selectedCat = cats.find(c => c.id === selectedCatId);

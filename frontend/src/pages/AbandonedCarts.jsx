@@ -28,7 +28,7 @@ export default function AbandonedCarts() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, status }) => formsApi.updateAbandoned(id, { recoveryStatus: status }),
-    onSuccess: () => qc.invalidateQueries(['abandoned-carts']),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['abandoned-carts'] }),
   });
 
   return (

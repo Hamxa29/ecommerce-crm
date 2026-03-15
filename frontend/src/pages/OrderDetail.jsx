@@ -48,16 +48,16 @@ export default function OrderDetail() {
       ...(agentFee != null ? { deliveryFee: agentFee } : {}),
     }),
     onSuccess: () => {
-      qc.invalidateQueries(['order', id]);
-      qc.invalidateQueries(['orders']);
+      qc.invalidateQueries({ queryKey: ['order', id] });
+      qc.invalidateQueries({ queryKey: ['orders'] });
     },
   });
 
   const unremitMutation = useMutation({
     mutationFn: () => ordersApi.update(id, { paymentStatus: 'UNPAID' }),
     onSuccess: () => {
-      qc.invalidateQueries(['order', id]);
-      qc.invalidateQueries(['orders']);
+      qc.invalidateQueries({ queryKey: ['order', id] });
+      qc.invalidateQueries({ queryKey: ['orders'] });
     },
   });
 
@@ -65,7 +65,7 @@ export default function OrderDetail() {
   const printStyleRef = useRef(null);
   useEffect(() => {
     const style = document.createElement('style');
-    style.textContent = `@media print { body > * { display: none !important; } #receipt-print-area { display: block !important; position: fixed; inset: 0; background: white; padding: 24px; font-family: monospace; font-size: 13px; color: #000; z-index: 99999; } }`;
+    style.textContent = `@media print { body * { visibility: hidden !important; } #receipt-print-area, #receipt-print-area * { visibility: visible !important; } #receipt-print-area { position: fixed; left: 0; top: 0; width: 100%; background: white !important; padding: 24px; font-family: monospace; font-size: 13px; color: #000 !important; z-index: 99999; } }`;
     document.head.appendChild(style);
     printStyleRef.current = style;
     return () => { style.remove(); };
@@ -86,8 +86,8 @@ export default function OrderDetail() {
       );
     },
     onSuccess: () => {
-      qc.invalidateQueries(['order', id]);
-      qc.invalidateQueries(['orders']);
+      qc.invalidateQueries({ queryKey: ['order', id] });
+      qc.invalidateQueries({ queryKey: ['orders'] });
       setNewStatus('');
       setNote('');
       setScheduledDate('');
@@ -98,12 +98,12 @@ export default function OrderDetail() {
 
   const deleteMutation = useMutation({
     mutationFn: () => ordersApi.hardDelete(id),
-    onSuccess: () => { qc.invalidateQueries(['orders']); navigate('/orders'); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['orders'] }); navigate('/orders'); },
   });
 
   const sendLinkMutation = useMutation({
     mutationFn: () => paymentsApi.sendLink(id),
-    onSuccess: () => qc.invalidateQueries(['order', id]),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['order', id] }),
   });
 
   if (isLoading) return (

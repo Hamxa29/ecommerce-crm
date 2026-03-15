@@ -70,7 +70,7 @@ function QRDisplay({ accountId, onConnected }) {
           const { status } = await api.getState(accountId);
           if (status === 'CONNECTED') {
             stopped = true;
-            qc.invalidateQueries(['wa-accounts']);
+            qc.invalidateQueries({ queryKey: ['wa-accounts'] });
             onConnected();
             break;
           }
@@ -150,7 +150,7 @@ function ConnectModal({ onClose }) {
       // 1. Create (or get existing) account in DB
       const acc = await api.create({ instanceName: instanceName.trim(), displayName: displayName.trim() || instanceName.trim() });
       setAccountId(acc.id);
-      qc.invalidateQueries(['wa-accounts']);
+      qc.invalidateQueries({ queryKey: ['wa-accounts'] });
 
       // 2. Check if already connected — skip QR entirely
       setStep('checking');
@@ -158,7 +158,7 @@ function ConnectModal({ onClose }) {
         const { status } = await api.getState(acc.id);
         if (status === 'CONNECTED') {
           setStep('done');
-          qc.invalidateQueries(['wa-accounts']);
+          qc.invalidateQueries({ queryKey: ['wa-accounts'] });
           return;
         }
       } catch { /* state check failed — proceed to QR anyway */ }
@@ -298,7 +298,7 @@ function ReconnectModal({ account, onClose }) {
       try {
         const { status } = await api.getState(account.id);
         if (status === 'CONNECTED') {
-          qc.invalidateQueries(['wa-accounts']);
+          qc.invalidateQueries({ queryKey: ['wa-accounts'] });
           setStep('done');
           return;
         }
@@ -383,7 +383,7 @@ export default function WaAccounts() {
     setRefreshingIds(prev => new Set(prev).add(id));
     try {
       await api.getState(id);
-      qc.invalidateQueries(['wa-accounts']);
+      qc.invalidateQueries({ queryKey: ['wa-accounts'] });
     } finally {
       setRefreshingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
     }
@@ -391,7 +391,7 @@ export default function WaAccounts() {
 
   const deleteMutation = useMutation({
     mutationFn: api.delete,
-    onSuccess: () => qc.invalidateQueries(['wa-accounts']),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['wa-accounts'] }),
   });
 
   return (
@@ -494,8 +494,8 @@ export default function WaAccounts() {
         </div>
       )}
 
-      {showConnect && <ConnectModal onClose={() => { setShowConnect(false); qc.invalidateQueries(['wa-accounts']); }} />}
-      {reconnectAccount && <ReconnectModal account={reconnectAccount} onClose={() => { setReconnectAccount(null); qc.invalidateQueries(['wa-accounts']); }} />}
+      {showConnect && <ConnectModal onClose={() => { setShowConnect(false); qc.invalidateQueries({ queryKey: ['wa-accounts'] }); }} />}
+      {reconnectAccount && <ReconnectModal account={reconnectAccount} onClose={() => { setReconnectAccount(null); qc.invalidateQueries({ queryKey: ['wa-accounts'] }); }} />}
     </div>
   );
 }

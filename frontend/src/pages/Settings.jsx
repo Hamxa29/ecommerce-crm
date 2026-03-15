@@ -80,7 +80,7 @@ function StoreSettingsSection() {
 
   const mutation = useMutation({
     mutationFn: settingsApi.update,
-    onSuccess: () => { qc.invalidateQueries(['store-settings']); setSaved(true); setForm(null); setError(''); setTimeout(() => setSaved(false), 2500); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['store-settings'] }); setSaved(true); setForm(null); setError(''); setTimeout(() => setSaved(false), 2500); },
     onError: (e) => setError(e.response?.data?.error ?? 'Failed to save'),
   });
 
@@ -163,7 +163,7 @@ function OrderSettingsSection() {
 
   const mutation = useMutation({
     mutationFn: settingsApi.update,
-    onSuccess: () => { qc.invalidateQueries(['store-settings']); setSaved(true); setForm(null); setError(''); setTimeout(() => setSaved(false), 2500); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['store-settings'] }); setSaved(true); setForm(null); setError(''); setTimeout(() => setSaved(false), 2500); },
     onError: (e) => setError(e.response?.data?.error ?? 'Failed to save'),
   });
 
@@ -284,7 +284,7 @@ function PendingOrderSection() {
   const mutation = useMutation({
     mutationFn: settingsApi.update,
     onSuccess: () => {
-      qc.invalidateQueries(['store-settings']);
+      qc.invalidateQueries({ queryKey: ['store-settings'] });
       setSaved(true); setForm(null); setError('');
       setTimeout(() => setSaved(false), 2500);
     },
@@ -364,7 +364,7 @@ function IntegrationsSection() {
   const mutation = useMutation({
     mutationFn: settingsApi.update,
     onSuccess: () => {
-      qc.invalidateQueries(['store-settings']);
+      qc.invalidateQueries({ queryKey: ['store-settings'] });
       setSaved(true); setForm(null); setError('');
       setTimeout(() => setSaved(false), 2500);
     },

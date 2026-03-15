@@ -17,7 +17,7 @@ function CategoryModal({ cat, onClose }) {
 
   const mutation = useMutation({
     mutationFn: (data) => isEdit ? categoriesApi.update(cat.id, data) : categoriesApi.create(data),
-    onSuccess: () => { qc.invalidateQueries(['categories']); onClose(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['categories'] }); onClose(); },
     onError: (e) => setError(e.response?.data?.error ?? 'Save failed'),
   });
 
@@ -74,12 +74,12 @@ export default function ProductCategories() {
 
   const deleteMutation = useMutation({
     mutationFn: (id) => categoriesApi.remove(id),
-    onSuccess: () => { qc.invalidateQueries(['categories']); setDeleteTarget(null); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['categories'] }); setDeleteTarget(null); },
   });
 
   const dupMutation = useMutation({
     mutationFn: (id) => categoriesApi.duplicate(id),
-    onSuccess: () => qc.invalidateQueries(['categories']),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['categories'] }),
   });
 
   const cats = data?.data ?? [];

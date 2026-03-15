@@ -30,7 +30,7 @@ function UserModal({ user, onClose }) {
 
   const mutation = useMutation({
     mutationFn: (data) => isEdit ? usersApi.update(user.id, data) : usersApi.create(data),
-    onSuccess: () => { qc.invalidateQueries(['users']); onClose(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); onClose(); },
     onError: (e) => setError(e.response?.data?.error ?? 'Save failed'),
   });
 
@@ -123,7 +123,7 @@ export default function Users() {
 
   const deleteMutation = useMutation({
     mutationFn: (id) => usersApi.remove(id),
-    onSuccess: () => { qc.invalidateQueries(['users']); setDeleteTarget(null); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); setDeleteTarget(null); },
   });
 
   const users = data?.data ?? [];

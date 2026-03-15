@@ -147,7 +147,7 @@ function TemplateModal({ template, accounts, prefill, onClose }) {
 
   const mutation = useMutation({
     mutationFn: template ? (d) => api.update(template.id, d) : api.create,
-    onSuccess: () => { qc.invalidateQueries(['wa-templates']); onClose(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['wa-templates'] }); onClose(); },
     onError: (e) => setError(e.response?.data?.error ?? 'Failed'),
   });
 
@@ -246,7 +246,7 @@ export default function WaTemplates() {
 
   const deleteMutation = useMutation({
     mutationFn: api.delete,
-    onSuccess: () => qc.invalidateQueries(['wa-templates']),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['wa-templates'] }),
   });
 
   const accountMap = Object.fromEntries(accounts.map(a => [a.id, a.displayName || a.instanceName]));

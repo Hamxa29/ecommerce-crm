@@ -266,7 +266,7 @@ function FormModal({ form, onClose }) {
 
   const saveMutation = useMutation({
     mutationFn: (data) => isEdit ? formsApi.update(form.id, data) : formsApi.create(data),
-    onSuccess: () => { qc.invalidateQueries(['forms']); onClose(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['forms'] }); onClose(); },
     onError: (e) => setError(e.response?.data?.error ?? e.message ?? 'Failed to save form'),
   });
 
@@ -597,12 +597,12 @@ export default function Forms() {
 
   const deleteMutation = useMutation({
     mutationFn: (id) => formsApi.remove(id),
-    onSuccess: () => qc.invalidateQueries(['forms']),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['forms'] }),
   });
 
   const toggleMutation = useMutation({
     mutationFn: ({ id, status }) => formsApi.update(id, { status }),
-    onSuccess: () => qc.invalidateQueries(['forms']),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['forms'] }),
   });
 
   return (

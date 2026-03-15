@@ -26,7 +26,7 @@ function AgentModal({ agent, onClose }) {
 
   const mutation = useMutation({
     mutationFn: agent ? (d) => api.update(agent.id, d) : api.create,
-    onSuccess: () => { qc.invalidateQueries(['agents']); onClose(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['agents'] }); onClose(); },
     onError: (e) => setError(e.response?.data?.error ?? 'Failed'),
   });
 
@@ -97,7 +97,7 @@ export default function Agents() {
   const { data: agents = [], isLoading } = useQuery({ queryKey: ['agents'], queryFn: api.list });
   const deleteMutation = useMutation({
     mutationFn: api.delete,
-    onSuccess: () => qc.invalidateQueries(['agents']),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['agents'] }),
   });
 
   return (

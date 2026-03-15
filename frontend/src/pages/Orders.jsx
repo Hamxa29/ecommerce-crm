@@ -105,7 +105,7 @@ function AddOrderModal({ onClose }) {
 
   const mutation = useMutation({
     mutationFn: (data) => ordersApi.create(data),
-    onSuccess: () => { qc.invalidateQueries(['orders']); onClose(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['orders'] }); onClose(); },
     onError: (e) => setError(e.response?.data?.error ?? 'Failed to create order'),
   });
 
@@ -215,7 +215,7 @@ export default function Orders() {
 
   const bulkMutation = useMutation({
     mutationFn: ({ action, payload }) => ordersApi.bulk(selectedIds, action, payload),
-    onSuccess: () => { qc.invalidateQueries(['orders']); setSelectedIds([]); setBulkAction(''); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['orders'] }); setSelectedIds([]); setBulkAction(''); },
   });
 
   const orders = data?.data ?? [];
@@ -282,7 +282,7 @@ export default function Orders() {
                 const fd = new FormData();
                 fd.append('file', file);
                 const res = await ordersApi.import(fd);
-                qc.invalidateQueries(['orders']);
+                qc.invalidateQueries({ queryKey: ['orders'] });
                 alert(`Imported ${res.imported} orders. Skipped ${res.skipped} invalid rows.`);
               } catch (err) {
                 alert(err.response?.data?.error ?? 'Import failed');
